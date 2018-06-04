@@ -1,0 +1,54 @@
+#
+# Analyzer configuration
+
+# OS dependent binaries with relative path to the jar file
+analyzer.linux  = linux/hfst-lookup.sh
+analyzer.win32  = win32/hfst-lookup.exe
+analyzer.osx    = osx/hfst-lookup
+# OS independent configuration parameters for the binary 
+analyzer.params = --cascade=composition --xfst=print-pairs --xfst=print-space --pipe-mode -t 2 ../hu.hfstol
+# maximum number of concurrent binaries
+analyzer.max_count  = 5
+# timeout in milliseconds for a query
+analyzer.timeout_ms = 2000
+
+
+stemmer.item_sep = ;
+stemmer.value_sep = =
+
+#
+# Stemmer configuration
+
+#
+# ';' separated list of tags
+
+stemmer.STEM = /Adj;/Adj|Abbr;/Adj|Attr;/Adj|Attr|Abbr;/Adj|Attr|Pro;/Adj|Attr|Pro|Rel;/Adj|FN;/Adj|Pred;/Adj|Pred|Pro;/Adj|Pro;/Adj|Pro|Int;/Adj|Pro|Rel;/Adj|Unit;/Adj|col;/Adj|nat;/Adv;/Adv|(Adj);/Adv|(Num);/Adv|Abbr;/Adv|Acronx;/Adv|AdjMod;/Adv|Pro;/Adv|Pro|Abbr;/Adv|Pro|Int;/Adv|Pro|Rel;/CmpdPfx;/Cnj;/Cnj|Abbr;/Det;/Det|Pro;/Det|Pro|(Post);/Det|Pro|Int;/Det|Pro|Rel;/Det|Pro|def;/Det|Q;/Det|Q|indef;/Det|art.Def;/Det|art.NDef;/Ger:At;/Inj-Utt;/N;/Num;/Num|Abbr;/Num|Attr;/Num|Digit;/Num|Pro;/Num|Pro|Int;/Num|Pro|Rel;/Num|Roman;/N|Abbr;/N|Abbr|ChemSym;/N|Abbr|Unit;/N|Acron;/N|Acronx;/N|Ltr;/N|Pro;/N|Pro|(Post);/N|Pro|Abbr;/N|Pro|Int;/N|Pro|Rel;/N|Unit;/N|Unit|Abbr;/N|def;/N|lat;/N|mat;/Post;/Post|(Abl);/Post|(All);/Post|(Ela);/Post|(Ins);/Post|(N0);/Post|(Poss);/Post|(Subl);/Post|(Supe);/Post|(Ter);/Prep;/Prev;/QPtcl;/Slash;/Space;/S|Abbr;/S|Acron;/V;/V|Abbr;/X;/X|Abbr;Hyph:Dash;Hyph:Hyph;Hyph:Slash;_Abe/Adj;_AdjVbz_Ntr/V;_AdjVbz_Tr/V;_Adjz:i/Adj;_Adjz:s/Adj;_Adjz:Ó/Adj;_Adjz:Ú/Adj;_Adjz_Hab/Adj;_Adjz_Loc:beli/Adj;_Adjz_Ord:VdlAgOs/Adj;_Adjz_Quant/Adj;_Adjz_Type:fajta/Adj;_Adjz_Type:féle/Adj;_Adjz_Type:szerű/Adj;_AdvPtcp:ttOn/Adv;_AdvPtcp:vÁst/Adv;_Advz:lAg/Adv;_Advz:rét/Adv;_Advz_LocDistr:szerte/Adv;_Advz_Quant:szám/Adv;_Des/N;_Dim:cskA/Adj;_Dim:cskA/N;_EssFor:kéntMA/Adj;_FutPtcp/Adj;_Ger:tA/N;_Ger/N;_ImpfPtcp/Adj;_MedPass/V;_MltComp/Adv;_ModPtcp/Adj;_Mrs/N;_NAdvz:ilAg/Adv;_VAdjz%:nivaló/Adj;_NVbz:l/V;_NVbz_Ntr:zik/V;_NVbz_Tr:z/V;_NegModPtcp/Adj;_NegPtcp/Adj;_Nz:s/N;_Nz_Abstr/N;_Nz_Type:féleség/N;_Nz_Type:szerűség/N;_Pass/V;_PerfPtcp/Adj;_PerfPtcp_Subj=tA/Adj;_VAdvz:ÓlAg/Adv;_VNz:nivaló/N;_Vbz:kOd/V
+
+stemmer.PREFIX = /Supl
+
+stemmer.COMP_MEMBER = /N;/Adj;/V;/CmpdPfx;/N|Acron;/N|Acronx;/N|Abbr;/N|lat|Abbr;/N|lat;/N|Unit;/N|mat
+
+stemmer.COMP_DELIM = /Prev
+
+stemmer.COMP_MUST_HAVE = /N;/Adj;/N|Acron;/N|Acronx;/N|Abbr;/N|lat|Abbr;/N|lat;/N|Unit;/N|mat
+
+stemmer.COMP_BEFORE_HYPHEN = Nom;/N;/Adj;/N|Acron;/N|Acronx;/N|Abbr;/N|lat|Abbr;/N|lat;/N|Unit;/N|mat;/Num;/Num|Attr
+
+stemmer.STEM_IF_COMP = _ImpfPtcp/Adj;_Adjz:s/Adj;_Adjz:Ó/Adj;_Ger/N
+
+stemmer.INT_PUNCT = Hyph:Dash;Hyph:Hyph;Hyph:Slash
+
+# 
+# format is 'A1=B1;A2=B2'
+
+stemmer.convert = _Abe/Adj=/Adj;_AdjVbz_Ntr/V=/V;_AdjVbz_Tr/V=/V;_Adjz:i/Adj=/Adj;_Adjz:s/Adj=/Adj;_Adjz:Ó/Adj=/Adj;_Adjz:Ú/Adj=/Adj;_Adjz_Hab/Adj=/Adj;_Adjz_Loc:beli/Adj=/Adj;_Adjz_Ord:VdlAgOs/Adj=/Adj;_Adjz_Quant/Adj=/Adj;_Adjz_Type:fajta/Adj=/Adj;_Adjz_Type:féle/Adj=/Adj;_Adjz_Type:szerű/Adj=/Adj;_AdvPerfPtcp/Adv=/Adv;_AdvPtcp:ttOn/Adv=/Adv;_AdvPtcp:vÁst/Adv=/Adv;_AdvPtcp/Adv=/Adv;_Advz:lAg/Adv=/Adv;_Advz:rét/Adv=/Adv;_Advz_LocDistr:szerte/Adv=/Adv;_Advz_Quant:szám/Adv=/Adv;_Aggreg/Adv=/Adv;_Caus/V=/V;_Com:stUl/Adv=/Adv;_Comp/Adj=/Adj;_Comp/Adv=/Adv;_Comp/Adv|Pro=/Adv|Pro;_Comp/Num=/Num;_Comp/N|Pro=/N|Pro;_Comp/Post|(Abl)=/Post|(Abl);_Comp/Post|(All)=/Post|(All);_Des/N=/N;_Design/Adj=/Adj;_Dim:cskA/Adj=/Adj;_Dim:cskA/N=/N;_Distr:nként/Adv=/Adv;_DistrFrq:ntA/Adv=/Adv;_EssFor:kéntMA/Adj=/Adj;_Frac/Num=/Num;_Freq/V=/V;_FutPtcp/Adj=/Adj;_Ger:tA/N=/N;_Ger/N=/N;_ImpfPtcp/Adj=/Adj;_Manner:0/Adv=/Adv;_Manner/Adv=/Adv;_MedPass/V=/V;_Mlt-Iter/Adv=/Adv;_MltComp/Adv=/Adv;_Mod/V=/V;_ModPtcp/Adj=/Adj;_Mrs/N=/N;_NAdvz:ilAg/Adv=/Adv;_VAdjz%:nivaló/Adj=/Adj;_NVbz:l/V=/V;_NVbz_Ntr:zik/V=/V;_NVbz_Tr:z/V=/V;_NegModPtcp/Adj=/Adj;_NegPtcp/Adj=/Adj;_Nz:s/N=/N;_Nz_Abstr/N=/N;_Nz_Type:féleség/N=/N;_Nz_Type:szerűség/N=/N;_Ord/Adj=/Adj;_OrdDate/N=/N;_Pass/V=/V;_PerfPtcp/Adj=/Adj;_PerfPtcp_Subj=tA/Adj /Adj;_Supe/N=/N;_Tmp_Ante/Adv=/Adv;_Tmp_Loc/Adv=/Adv;_VAdvz:ÓlAg/Adv=/Adv;_VNz:nivaló/N=/N;_Vbz:kOd/V=/V
+
+stemmer.replace = /Adj|col=/Adj;/Adj|nat=/Adj;/N|mat=/N;/N|Acron=/N;/N|Unit=/N;/N|Unit|Abbr=/N;/N|Abbr|ChemSym=/N;/N|Ltr=/N;/N|Acronx=/N;/N|Abbr=/N;/N|def=/N;/N|lat|Abbr=/N;/N|lat=/N;/Adj|lat=/Adj;/Num|lat=/Num
+
+#
+# regular expressions for exclusion
+#stemmer.exclude1 = 
+#stemmer.exclude2 = 
+
+# list of characters
+stemmer.copy2surface = * *

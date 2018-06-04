@@ -1,0 +1,4 @@
+Flask
+gunicorn
+flask_restful
+jprops
