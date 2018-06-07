@@ -2,3 +2,5 @@ Flask
 gunicorn
 flask_restful
 jprops
+# For the clients
+requests

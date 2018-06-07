@@ -5,6 +5,7 @@ import jprops
 
 import os
 import re
+import sys
 import subprocess
 from enum import Enum
 from collections import defaultdict
@@ -92,7 +93,12 @@ class EmMorphPy:
 
         copy2surface_str = props.get('stemmer.copy2surface', '')
 
-        return item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str
+        hfst_params = props.get('analyzer.params', '').split()
+        if len(hfst_params) > 0:
+            hfst_params = hfst_params[:-1]  # Cut the FSA
+
+        return item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str,\
+            hfst_params
 
     @staticmethod
     def _copy2surface(copy2surface_str, in_str, out):
@@ -124,9 +130,7 @@ class EmMorphPy:
             last.surface = surface
 
     def _stemmer_process(self, input_str, conf):
-        if input_str.endswith('+?'):
-            return ()
-        item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str = conf
+        item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str, _ = conf
 
         state = 0
 
@@ -373,7 +377,7 @@ class EmMorphPy:
         for n, m in enumerate(stem.morphs[1:-1], start=1):
             m = stem.morphs[n]
             m.is_stem |= stem.morphs[n - 1].is_stem and stem.morphs[n + 1].is_stem and \
-                         (m.surface == '-' or m.lexical == '-')
+                (m.surface == '-' or m.lexical == '-')
 
         if internal_punct_and and hyphen_pos != -1 and not compound:
             # ikerszo
@@ -491,11 +495,16 @@ class EmMorphPy:
     def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
                  fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup'):
         self.loaded_conf = self._load_config(props)
+        params = self.loaded_conf[-1]  # HFST params
 
-        # TOOD: Error handling!
-        self.p = subprocess.Popen([hfst_lookup, '--cascade=composition', '--xfst=print-pairs', '--xfst=print-space',
-                                   '--pipe-mode', '-t 2', fsa], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE)
+        try:
+            self.p = subprocess.Popen([hfst_lookup, *params, fsa], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            print('ERROR: hfst-lookup not found at: {0} !'.format(hfst_lookup), file=sys.stderr)
+            exit(1)
+
+        self._spec_query('test')
 
     def close(self):
         self.p.wait()
@@ -506,15 +515,28 @@ class EmMorphPy:
 
     def _spec_query(self, inp):
         output = []
-        self.p.stdin.write('{0}\n'.format(inp).encode('UTF-8'))
-        self.p.stdin.flush()
+        try:
+            self.p.stdin.write('{0}\n'.format(inp).encode('UTF-8'))
+            self.p.stdin.flush()
+        except BrokenPipeError:
+            print(self.p.stderr.read().encode('UTF-8').rstrip(), file=sys.stderr)
+            exit(self.p.wait())
+
         while True:
-            out = self.p.stdout.readline()
+            out = ''
+            try:
+                out = self.p.stdout.readline()
+            except BrokenPipeError:
+                print(self.p.stderr.read().encode('UTF-8').rstrip(), file=sys.stderr)
+                exit(self.p.wait())
+
             if len(out) <= 1:
                 break
             ret = out.decode('UTF-8').strip().split('\t')
             if len(ret) == 3:
                 hfst_out = ret[1]
+                if hfst_out.endswith('+?'):
+                    return ()
                 danal = self._parse_stem(hfst_out)
                 stem = self._stemmer_process(danal, self.loaded_conf)
                 output.append((inp, danal, stem))
