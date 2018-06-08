@@ -14,7 +14,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 
   - Clone the repository
   - Run: `sudo pip3 install -r requirements.txt`
-  - Use from Python!
+  - Use from Python
 
 ## Install to Heroku
 
@@ -25,15 +25,15 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
   - Clone the repository
   - Add Heroku as remote origin
   - Add APT buildpack: `heroku buildpacks:add --index 1 https://github.com/heroku/heroku-buildpack-apt`
-  - Push the repository to Heroku!
+  - Push the repository to Heroku
   - Enjoy!
 
 ## Usage
 
   - From browser or anyhow through the REST API:
      - Lemmatization: https://emmorph.herokuapp.com/stem/működik
-     - Detailed analyzis: https://emmorph.herokuapp.com/analyze/működik
-     - Lemmatisation with the corresponding detailed analyzis: https://emmorph.herokuapp.com/dstem/működik
+     - Detailed analysis: https://emmorph.herokuapp.com/analyze/működik
+     - Lemmatisation with the corresponding detailed analysis: https://emmorph.herokuapp.com/dstem/működik
 
 	```python
 	>>> import requests
@@ -64,4 +64,4 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 ## License
 
 This Python wrapper, the lemmatizer implementation and the REST API is licensed under the LGPL 3.0 license.
-The database and the lemmatizer configuration has its own license!
+The database and the lemmatizer configuration has its own license.

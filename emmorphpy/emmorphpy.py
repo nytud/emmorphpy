@@ -519,7 +519,7 @@ class EmMorphPy:
             self.p.stdin.write('{0}\n'.format(inp).encode('UTF-8'))
             self.p.stdin.flush()
         except BrokenPipeError:
-            print(self.p.stderr.read().encode('UTF-8').rstrip(), file=sys.stderr)
+            print(self.p.stderr.read().decode('UTF-8').rstrip(), file=sys.stderr)
             exit(self.p.wait())
 
         while True:
@@ -527,17 +527,14 @@ class EmMorphPy:
             try:
                 out = self.p.stdout.readline()
             except BrokenPipeError:
-                print(self.p.stderr.read().encode('UTF-8').rstrip(), file=sys.stderr)
+                print(self.p.stderr.read().decode('UTF-8').rstrip(), file=sys.stderr)
                 exit(self.p.wait())
 
             if len(out) <= 1:
                 break
             ret = out.decode('UTF-8').strip().split('\t')
-            if len(ret) == 3:
-                hfst_out = ret[1]
-                if hfst_out.endswith('+?'):
-                    return ()
-                danal = self._parse_stem(hfst_out)
+            if len(ret) == 3 and not ret[1].endswith('+?'):
+                danal = self._parse_stem(ret[1])
                 stem = self._stemmer_process(danal, self.loaded_conf)
                 output.append((inp, danal, stem))
         return output
