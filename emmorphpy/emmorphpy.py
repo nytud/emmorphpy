@@ -369,7 +369,7 @@ class EmMorphPy:
             # ez már ikerszó nem lehet
             # TODO: Simplify bool expression...
             if Flags.COMP_BEFORE_HYPHEN in m.flags and not (hyphen_pos > 1 and len(m.lexical) == 0
-                                                            and m.surface.is_empty()
+                                                            and len(m.surface) == 0
                                                             and not stem.morphs[hyphen_pos - 2].is_stem):
                 internal_punct_and = False
 
@@ -536,7 +536,8 @@ class EmMorphPy:
             if len(ret) == 3 and not ret[1].endswith('+?'):
                 danal = self._parse_stem(ret[1])
                 stem = self._stemmer_process(danal, self.loaded_conf)
-                output.append((inp, danal, stem))
+                if len(stem) > 0:  # Suppress incorrect words
+                    output.append((inp, danal, stem))
         return output
 
     def stem(self, inp, out_mode=sorted):
