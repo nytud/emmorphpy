@@ -6,6 +6,7 @@ import jprops
 import os
 import re
 import sys
+import functools
 import subprocess
 from enum import Enum
 from collections import defaultdict
@@ -66,6 +67,58 @@ class Stem:
 
 
 class EmMorphPy:
+
+    def _create_extra_lexicon(self):
+        """
+        lexicon must be defined:
+        that is a dictionary, each key is the wordform,
+        corresponding values are stored in a list of tuples.
+
+        e.g: lexicon = { 'utána': [('utána', '[KOT]', 'DETAILED_ANALYSIS')] }
+        """
+        self.lexicon = {'.': [('.', '[Punct]', '')],
+                        ',': [(',', '[Punct]', '')],
+                        ';': [(';', '[Punct]', '')],
+                        ':': [(':', '[Punct]', '')],
+                        '!': [('!', '[Punct]', '')],
+                        '(': [('(', '[Punct]', '')],
+                        ')': [(')', '[Punct]', '')],
+                        '[': [('[', '[Punct]', '')],
+                        ']': [(']', '[Punct]', '')],
+                        '«': [('«', '[Punct]', '')],
+                        '»': [('»', '[Punct]', '')],
+                        '"': [('"', '[Punct]', '')],
+                        '·': [('·', '[Punct]', '')],
+                        '•': [('•', '[Punct]', '')],
+                        '=': [('=', '[Punct]', '')],
+                        '-': [('-', '[Punct]', '')],
+                        '—': [('—', '[Punct]', '')],
+                        '+': [('+', '[Punct]', '')],
+                        '&': [('&', '[Punct]', '')],
+                        '→': [('→', '[Punct]', '')],
+                        '…': [('…', '[Punct]', '')],
+                        '`': [('`', '[Punct]', '')],
+                        '?': [('?', '[Punct]', '')],
+                        '?!': [('?!', '[Punct]', '')],
+                        '\'': [('\'', '[Punct]', '')],
+                        '.........': [('.........', '[Punct]', '')],
+                        '.......': [('.......', '[Punct]', '')],
+                        '......': [('......', '[Punct]', '')],
+                        '.....': [('.....', '[Punct]', '')],
+                        '....': [('....', '[Punct]', '')],
+                        '...': [('...', '[Punct]', '')],
+                        '..': [('..', '[Punct]', '')]
+                        }
+
+    def _create_exceptions(self):
+        """
+        exceptions must be defined:
+        that is a dictionary, each key is the wordform,
+        corresponding values are stored in a set of tuples.
+
+        e.g: exceptions = { 'hűha': {('hűha', '[ISZ]', 'DETAILED_ANALYSIS')} }
+        """
+        self.exceptions = {}
 
     @staticmethod
     def _load_config(java_props_file):
@@ -493,9 +546,22 @@ class EmMorphPy:
         return '+'.join(items)  # Ez megy a stemmerbe...
 
     def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
-                 fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup'):
+                 fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
+                 lexicon=None, exceptions=None):
         self.loaded_conf = self._load_config(props)
         params = self.loaded_conf[-1]  # HFST params
+
+        # Init extra anals
+        if lexicon is None:
+            self._create_extra_lexicon()
+        else:
+            self.lexicon = lexicon
+
+        # Init exceptional anals
+        if lexicon is None:
+            self._create_exceptions()
+        else:
+            self.exceptions = exceptions
 
         try:
             self.p = subprocess.Popen([hfst_lookup, *params, fsa], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -513,6 +579,7 @@ class EmMorphPy:
         except OSError:
             pass
 
+    @functools.lru_cache(maxsize=2000)
     def _spec_query(self, inp):
         output = []
         try:
@@ -538,6 +605,15 @@ class EmMorphPy:
                 stem = self._stemmer_process(danal, self.loaded_conf)
                 if len(stem) > 0:  # Suppress incorrect words
                     output.append((inp, danal, stem))
+
+        # Add extra anals
+        output.extend(self.lexicon.get(inp, []))
+
+        # Remove exceptional anals
+        to_delete = self.exceptions.get(inp)
+        if to_delete is not None:
+            output = [anal for anal in output if anal not in to_delete]
+
         return output
 
     def stem(self, inp, out_mode=sorted):
