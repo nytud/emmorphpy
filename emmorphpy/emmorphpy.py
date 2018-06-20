@@ -604,6 +604,9 @@ class EmMorphPy:
                 danal = self._parse_stem(ret[1])
                 stem = self._stemmer_process(danal, self.loaded_conf)
                 if len(stem) > 0:  # Suppress incorrect words
+                    # Do not allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
+                    danal = danal.replace(' ', '_')
+                    stem = (stem[0].replace(' ', '_'), stem[1].replace(' ', '_'))
                     output.append((inp, danal, stem))
 
         # Add extra anals
