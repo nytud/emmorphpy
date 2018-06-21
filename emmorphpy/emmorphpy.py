@@ -118,7 +118,8 @@ class EmMorphPy:
 
         e.g: exceptions = { 'hűha': {('hűha', '[ISZ]', 'DETAILED_ANALYSIS')} }
         """
-        self.exceptions = {}
+        self.exceptions = {'+': {('', '[/N][Nom]', '+[/N]=++[Nom]')}
+                           }
 
     @staticmethod
     def _load_config(java_props_file):
@@ -605,9 +606,11 @@ class EmMorphPy:
                 stem = self._stemmer_process(danal, self.loaded_conf)
                 if len(stem) > 0:  # Suppress incorrect words
                     # Do not allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
+                    lemma, tag = stem
+                    lemma = lemma.replace(' ', '_')
+                    tag = tag.replace(' ', '_')
                     danal = danal.replace(' ', '_')
-                    stem = (stem[0].replace(' ', '_'), stem[1].replace(' ', '_'))
-                    output.append((inp, danal, stem))
+                    output.append((lemma, tag, danal))
 
         # Add extra anals
         output.extend(self.lexicon.get(inp, []))
@@ -620,13 +623,13 @@ class EmMorphPy:
         return output
 
     def stem(self, inp, out_mode=sorted):
-        return out_mode(list(elem[2]) for elem in self._spec_query(inp))
+        return out_mode((lemma, tag) for lemma, tag, _ in self._spec_query(inp))
 
     def analyze(self, inp, out_mode=sorted):
-        return out_mode(elem[1] for elem in self._spec_query(inp))
+        return out_mode(danal for _, _, danal in self._spec_query(inp))
 
     def dstem(self, inp, out_mode=sorted):
-        return out_mode(list(elem[2]) + [elem[1]] for elem in self._spec_query(inp))
+        return out_mode((lemma, tag, danal) for lemma, tag, danal in self._spec_query(inp))
 
     def test(self):
         hfst_out_test = 'a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]'
