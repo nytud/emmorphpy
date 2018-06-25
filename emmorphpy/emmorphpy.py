@@ -622,13 +622,13 @@ class EmMorphPy:
 
         return output
 
-    def stem(self, inp, out_mode=sorted):
+    def stem(self, inp, out_mode=lambda x: sorted(set(x))):
         return out_mode((lemma, tag) for lemma, tag, _ in self._spec_query(inp))
 
-    def analyze(self, inp, out_mode=sorted):
+    def analyze(self, inp, out_mode=lambda x: sorted(set(x))):
         return out_mode(danal for _, _, danal in self._spec_query(inp))
 
-    def dstem(self, inp, out_mode=sorted):
+    def dstem(self, inp, out_mode=lambda x: sorted(set(x))):
         return out_mode((lemma, tag, danal) for lemma, tag, danal in self._spec_query(inp))
 
     def test(self):
