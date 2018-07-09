@@ -189,6 +189,7 @@ class EmMorphPy:
             tagc = tag_convert.get(sz_cur_cod)
             morph.is_derivative = tagc is not None
             morph.flags_conv = tag_config.get(tagc, set())  # None -> set(), None can be hashed also!
+
             # tag replacement
             r = tag_replace.get(sz_cur_cod)
             if r is not None:
@@ -205,14 +206,18 @@ class EmMorphPy:
             # copy spec cars from lexical
             if len(copy2surface_str) > 0:  # else nothing to do :)
                 i = 0
-                while i < len(morph.surface):  # Mutate out in the loop!
-                    if i >= len(morph.lexical):
+                lex = morph.lexical
+                surf = morph.surface
+                while i < len(surf):  # Mutate out in the loop!
+                    if i >= len(lex):
                         break
-                    if copy2surface_str.find(morph.lexical[i]) != -1:
-                        morph.surface = morph.surface[0:i] + morph.lexical[i] + morph.surface[i:]
-                    elif morph.lexical[i] != morph.surface[i]:
+                    if copy2surface_str.find(lex[i]) != -1:
+                        surf = ''.join((surf[0:i], lex[i], surf[i:]))
+                    elif lex[i] != surf[i]:
                         break
                     i += 1
+
+                morph.surface = surf
 
             # if (m_GetCaseFromInput)  // lexical gets case state from surface
             #   CaseConvert(surface, (curr_analysis.morp.end()-1)->lexical/*prev_lexical*/);
@@ -220,8 +225,6 @@ class EmMorphPy:
             if stem.compounds > 1 and hyphen_pos != len(stem.morphs) - 2:  # /*curr_analysis.compound_word*/
                 # if it is in compound word: lowercase ("WolfGang"=>"Wolfgang")
                 morph.lexical = morph.lexical.lower()
-
-            stem.morphs.append(morph)
 
             # van-e 2 egymást követő compound member, (ha igen, tuti összetett)
             sure_compound |= prev_compound and compound_member
@@ -231,6 +234,8 @@ class EmMorphPy:
             tmp_bool = look_for_compound and Flags.COMP_MEMBER in morph.flags_conv
             compound_member |= tmp_bool
             morph.is_compound_member |= tmp_bool
+
+            stem.morphs.append(morph)
 
             if morph.is_stem:
                 if morph.lexical == '-':
