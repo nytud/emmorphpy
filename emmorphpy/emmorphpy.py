@@ -508,8 +508,7 @@ class EmMorphPy:
                     item_surface += ch
                 else:
                     if len(item_tag) > 0:
-                        if len(item_surface) > 0:
-                            item_surface = '=' + item_surface
+                        item_surface = '=' + item_surface
                         out = item_lexical + "[" + item_tag + "]" + item_surface
                         items.append(out)
                         item_surface = ''
@@ -520,8 +519,7 @@ class EmMorphPy:
                 if ch == '[':  # tag opening
                     state = 3
                     if len(item_tag) > 0:
-                        if len(item_surface) > 0:
-                            item_surface = '=' + item_surface
+                        item_surface = '=' + item_surface
                         out = item_lexical + "[" + item_tag + "]" + item_surface
                         items.append(out)
                         item_surface = ''
@@ -539,8 +537,7 @@ class EmMorphPy:
                 else:
                     item_tag += ch
         if len(item_tag) > 0 or len(item_lexical) > 0 or len(item_surface) > 0:
-            if len(item_surface) > 0:
-                item_surface = '=' + item_surface
+            item_surface = '=' + item_surface
             out = item_lexical + "[" + item_tag + "]" + item_surface
             items.append(out)
 
