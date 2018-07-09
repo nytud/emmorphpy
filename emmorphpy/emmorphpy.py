@@ -155,21 +155,7 @@ class EmMorphPy:
             hfst_params
 
     @staticmethod
-    def _copy2surface(copy2surface_str, in_str, out):
-        if len(copy2surface_str) > 0:  # else nothing to do :)
-            i = 0
-            while i < len(out):  # Mutate out in the loop!
-                if i >= len(in_str):
-                    break
-                if copy2surface_str.find(in_str[i]) != -1:
-                    out = out[0:i] + in_str[i] + out[i:]
-                elif in_str[i] != out[i]:
-                    break
-                i += 1
-
-        return out
-
-    def _stemmer_process(self, input_str, conf):
+    def _stemmer_process(input_str, conf):
         item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str, _ = conf
 
         derivative = False
@@ -182,13 +168,12 @@ class EmMorphPy:
         sure_compound = False
         prev_compound = False
 
-        surface = ''  # lexical prev_lexical, prev_surface;
-
         stem = Stem()
 
         for item_lexical, item_tag, item_surface in input_str:
             morph = MorphemeInfo()
             morph.lexical = item_lexical
+            morph.surface = item_surface
             sz_cur_cod = item_tag
 
             # 6-3-as szabály miatt (2011.07.18. NA: "Azt kéne csinálni, hogy a morfológia által
@@ -218,7 +203,16 @@ class EmMorphPy:
                                        Flags.COMP_MUST_HAVE in morph.flags_conv)
 
             # copy spec cars from lexical
-            morph.surface = self._copy2surface(copy2surface_str, morph.lexical, item_surface)
+            if len(copy2surface_str) > 0:  # else nothing to do :)
+                i = 0
+                while i < len(morph.surface):  # Mutate out in the loop!
+                    if i >= len(morph.lexical):
+                        break
+                    if copy2surface_str.find(morph.lexical[i]) != -1:
+                        morph.surface = morph.surface[0:i] + morph.lexical[i] + morph.surface[i:]
+                    elif morph.lexical[i] != morph.surface[i]:
+                        break
+                    i += 1
 
             # if (m_GetCaseFromInput)  // lexical gets case state from surface
             #   CaseConvert(surface, (curr_analysis.morp.end()-1)->lexical/*prev_lexical*/);
