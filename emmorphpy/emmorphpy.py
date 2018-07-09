@@ -169,20 +169,6 @@ class EmMorphPy:
 
         return out
 
-    def _convert_case(self, copy2surface_str, hyphen_pos, stem, surface):
-        if len(stem.morphs) > 0:
-            last = stem.morphs[-1]
-            surface = self._copy2surface(copy2surface_str, last.lexical, surface)  # copy spec cars from lexical
-
-            # if (m_GetCaseFromInput)  // lexical gets case state from surface
-            #   CaseConvert(surface, (curr_analysis.morp.end()-1)->lexical/*prev_lexical*/);
-            # else
-            if stem.compounds > 1 and hyphen_pos != len(stem.morphs) - 2:  # /*curr_analysis.compound_word*/
-                # if it is in compound word: lowercase ("WolfGang"=>"Wolfgang")
-                last.lexical = last.lexical.lower()
-
-            last.surface = surface
-
     def _stemmer_process(self, input_str, conf):
         item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str, _ = conf
 
@@ -228,12 +214,18 @@ class EmMorphPy:
             morph.is_compound_delimiter = Flags.COMP_DELIM in morph.flags
             morph.is_prefix = Flags.PREFIX in morph.flags
 
-            # surface form és nincs utána semmi
-            self._convert_case(copy2surface_str, hyphen_pos, stem, surface)
-            surface = item_surface
-
             must_have_compounds += int(Flags.COMP_MUST_HAVE in morph.flags or
                                        Flags.COMP_MUST_HAVE in morph.flags_conv)
+
+            # copy spec cars from lexical
+            morph.surface = self._copy2surface(copy2surface_str, morph.lexical, item_surface)
+
+            # if (m_GetCaseFromInput)  // lexical gets case state from surface
+            #   CaseConvert(surface, (curr_analysis.morp.end()-1)->lexical/*prev_lexical*/);
+            # else
+            if stem.compounds > 1 and hyphen_pos != len(stem.morphs) - 2:  # /*curr_analysis.compound_word*/
+                # if it is in compound word: lowercase ("WolfGang"=>"Wolfgang")
+                morph.lexical = morph.lexical.lower()
 
             stem.morphs.append(morph)
 
