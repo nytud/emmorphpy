@@ -47,7 +47,7 @@ class Stem:
 
     def __init__(self):
         self.morphs = []
-        self.sz_accented_form = ''
+        # self.sz_accented_form = ''
         self.sz_stem = ''
         self.stem_code = -1
         self.compounds = 0
@@ -56,9 +56,9 @@ class Stem:
         self.compound_delims = []
 
     def __str__(self):
-        return "morphs: {0} \n |sz_accented_form: {1} |sz_stem: {2} |stem_code: {3} |compounds: {4} " \
-               "|compound_word: {5} |incorrect_word: {6} |compound_delims: {7}".format(
-                str([str(m) for m in self.morphs]), self.sz_accented_form, self.sz_stem, self.stem_code, self.compounds,
+        return "morphs: {0} \n |sz_stem: {1} |stem_code: {2} |compounds: {3} " \
+               "|compound_word: {4} |incorrect_word: {5} |compound_delims: {6}".format(
+                str([str(m) for m in self.morphs]), self.sz_stem, self.stem_code, self.compounds,
                 self.compound_word, self.incorrect_word, self.compound_delims)
 
     def get_tags(self, all_tags):
@@ -186,8 +186,6 @@ class EmMorphPy:
     def _stemmer_process(self, input_str, conf):
         item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str, _ = conf
 
-        state = 0
-
         derivative = False
         must_have_compounds = 0  # how many morphemes with "compound must have" property
         last_stem_code = -1     # last stem position
@@ -195,139 +193,89 @@ class EmMorphPy:
         hyphen_pos = -1         # position of a hyphen
         look_for_compound = False
 
-        surf_lex_diff = False
         sure_compound = False
         prev_compound = False
 
-        sz_cur_cod = ''
         surface = ''  # lexical prev_lexical, prev_surface;
 
-        morph = MorphemeInfo()
         stem = Stem()
 
-        for c in input_str:
-            if state == 0:
-                if c == '[':
-                    state = 1
-                elif c == '=':
-                    state = 2
-                    surf_lex_diff = True
-                elif c == '+':
-                    surf_lex_diff = False
-                # ignoring '+' in lexical form
-                else:
-                    stem.sz_accented_form += c
-                    morph.lexical += c
-            elif state == 1:
-                if c == ']':
-                    morph.flags = tag_config[sz_cur_cod]
+        for item_lexical, item_tag, item_surface in input_str:
+            morph = MorphemeInfo()
+            morph.lexical = item_lexical
+            sz_cur_cod = item_tag
 
-                    morph.is_stem = Flags.STEM in morph.flags
-                    it_is_stem = morph.is_stem
-                    morph.is_compound_member = Flags.COMP_MEMBER in morph.flags
-                    compound_member = morph.is_compound_member
+            # 6-3-as szabály miatt (2011.07.18. NA: "Azt kéne csinálni, hogy a morfológia által
+            #  visszaadott cimkék elején lévő részt a `-ig ki kell törölni mielőtt bármi mást csinálnál")
+            sz_cur_cod = sz_cur_cod[sz_cur_cod.find('`') + 1:]  # If not found -> -1 +1 = [0:] = the whole string
+            morph.flags = tag_config[sz_cur_cod]
 
-                    # conversion
-                    tagc = tag_convert.get(sz_cur_cod)
-                    morph.is_derivative = tagc is not None
-                    if morph.is_derivative:
-                        morph.flags_conv = tag_config[tagc]
-                    else:
-                        morph.flags_conv = set()
+            morph.is_stem = Flags.STEM in morph.flags
+            morph.is_compound_member = Flags.COMP_MEMBER in morph.flags
+            compound_member = morph.is_compound_member
 
-                    # tag replacement
-                    r = tag_replace.get(sz_cur_cod)
-                    if r is not None:
-                        sz_cur_cod = r
-                        morph.flags = tag_config.get(sz_cur_cod, morph.flags)  # Replace if found else keep
+            # conversion
+            tagc = tag_convert.get(sz_cur_cod)
+            morph.is_derivative = tagc is not None
+            morph.flags_conv = tag_config.get(tagc, set())  # None -> set(), None can be hashed also!
+            # tag replacement
+            r = tag_replace.get(sz_cur_cod)
+            if r is not None:
+                sz_cur_cod = r
+                morph.flags = tag_config.get(sz_cur_cod, morph.flags)  # Replace if found else keep
 
-                    morph.category = sz_cur_cod
-                    morph.is_compound_delimiter = Flags.COMP_DELIM in morph.flags
-                    morph.is_prefix = Flags.PREFIX in morph.flags
+            morph.category = sz_cur_cod
+            morph.is_compound_delimiter = Flags.COMP_DELIM in morph.flags
+            morph.is_prefix = Flags.PREFIX in morph.flags
 
-                    if surf_lex_diff:
-                        morph.surface = surface
-                    else:
-                        morph.surface = morph.lexical
-
-                    must_have_compounds += int(Flags.COMP_MUST_HAVE in morph.flags or
-                                               (morph.flags_conv is not None and
-                                                Flags.COMP_MUST_HAVE in morph.flags_conv))
-
-                    stem.morphs.append(morph)
-
-                    # van-e 2 egymást követő compound member, (ha igen, tuti összetett)
-                    sure_compound |= prev_compound and compound_member
-                    prev_compound = compound_member
-
-                    # ha volt már tő és ez képző => a konvertáltjait megkeressük, ha compound member, akkor beállítjuk
-                    tmp_bool = look_for_compound and morph.flags_conv is not None and \
-                        Flags.COMP_MEMBER in morph.flags_conv
-                    compound_member |= tmp_bool
-                    morph.is_compound_member |= tmp_bool
-
-                    if it_is_stem:
-                        if morph.lexical == '-':
-                            hyphen_pos = len(stem.morphs) - 1
-
-                        if stem.stem_code == -1:
-                            stem.stem_code = len(stem.morphs) - 1  # save pos...
-
-                        last_stem_code = len(stem.morphs) - 1
-                        if prev_last_stem_code != -1 and morph.lexical != '-':
-                            convert = False
-                            # Mutate list in loop!
-                            for i in range(last_stem_code, prev_last_stem_code - 1, -1):
-                                m = stem.morphs[i]
-                                convert |= m.is_stem
-                                if convert and m.is_derivative:
-                                    # TODO: A None itt nincs kezelve
-                                    m.category = tag_convert.get(m.category)
-                                    m.flags = m.flags_conv
-                                    m.is_stem |= m.flags is not None and Flags.STEM in m.flags
-
-                        prev_last_stem_code = last_stem_code
-                        # első tőalkotó után bekapcsoljuk, ha ez True, akkor keresünk olyan képzőt,
-                        #  ami compound membert csinál belőle
-                        look_for_compound |= not derivative
-
-                    # ha cmember => növelem
-                    # ha tő ÉS jön egy compoundMember kepző => növelem
-                    if compound_member:
-                        stem.compounds += 1
-                        look_for_compound = False
-
-                    morph = MorphemeInfo()
-                    sz_cur_cod = ''
-                    state = 2
-                elif c == '`':
-                    # 6-3-as szabály miatt (2011.07.18. NA: "Azt kéne csinálni, hogy a morfológia által
-                    #  visszaadott cimkék elején lévő részt a `-ig ki kell törölni mielőtt bármi mást csinálnál")
-                    sz_cur_cod = ''
-                else:
-                    sz_cur_cod += c
-
-            elif state == 2:
-                if c == '+':
-                    state = 0
-                # iLastPlusPos = curr_analysis.sz_accented_form.length();
-                elif c == '=':
-                    state = 3
-
-            elif state == 3:
-                # surface form is arriving, it may replace stem
-                if c == '+':
-                    state = 0
-                    self._convert_case(copy2surface_str, hyphen_pos, stem, surface)
-                    surface = ''
-                else:
-                    surface += c
-
-            elif state == 5:
-                break
-
-        if len(surface) > 0:  # surface form és nincs utána semmi
+            # surface form és nincs utána semmi
             self._convert_case(copy2surface_str, hyphen_pos, stem, surface)
+            surface = item_surface
+
+            must_have_compounds += int(Flags.COMP_MUST_HAVE in morph.flags or
+                                       Flags.COMP_MUST_HAVE in morph.flags_conv)
+
+            stem.morphs.append(morph)
+
+            # van-e 2 egymást követő compound member, (ha igen, tuti összetett)
+            sure_compound |= prev_compound and compound_member
+            prev_compound = compound_member
+
+            # ha volt már tő és ez képző => a konvertáltjait megkeressük, ha compound member, akkor beállítjuk
+            tmp_bool = look_for_compound and Flags.COMP_MEMBER in morph.flags_conv
+            compound_member |= tmp_bool
+            morph.is_compound_member |= tmp_bool
+
+            if morph.is_stem:
+                if morph.lexical == '-':
+                    hyphen_pos = len(stem.morphs) - 1
+
+                if stem.stem_code == -1:
+                    stem.stem_code = len(stem.morphs) - 1  # save pos...
+
+                last_stem_code = len(stem.morphs) - 1
+                if prev_last_stem_code != -1 and morph.lexical != '-':
+                    convert = False
+                    # Mutate list in loop!
+                    for i in range(last_stem_code, prev_last_stem_code - 1, -1):
+                        m = stem.morphs[i]
+                        convert |= m.is_stem
+                        if convert and m.is_derivative:
+                            # TODO: A None itt nincs kezelve
+                            m.category = tag_convert.get(m.category)
+                            m.flags = m.flags_conv
+                            m.is_stem |= m.flags is not None and Flags.STEM in m.flags
+
+                prev_last_stem_code = last_stem_code
+                # első tőalkotó után bekapcsoljuk, ha ez True, akkor keresünk olyan képzőt,
+                #  ami compound membert csinál belőle
+                look_for_compound |= not derivative
+
+            # ha cmember => növelem
+            # ha tő ÉS jön egy compoundMember kepző => növelem
+            if compound_member:
+                stem.compounds += 1
+                look_for_compound = False
 
         """
         // === creating stem ===
@@ -494,6 +442,13 @@ class EmMorphPy:
             return stem.sz_stem, stem.get_tags(False)
 
     @staticmethod
+    def put_together(morph):
+        item_lexical, item_tag, item_surface = morph
+        item_surface = '=' + item_surface
+        out = '{0}[{1}]{2}'.format(item_lexical, item_tag, item_surface)
+        return out
+
+    @staticmethod
     def _parse_stem(inp):
         item_surface = ''
         item_tag = ''
@@ -501,30 +456,27 @@ class EmMorphPy:
         items = []
         state = 0
         for ch in inp:
-            if state in (0, 2):
+            if state in (0, 2):  # re.split('([^<>]*)', '<body><table><tr><td>')
                 if ch == ':':  # switch sides
+                    # else_str = re.match('[: ]*', substr).group()
+                    # surf_len = len(else_str)
+                    # if len(surf_len) > 0: item_surface = else_str
+                    # curr += surf_len + 1                if ch == ':':  # switch sides
                     state += 1
                 elif ch == ' ':
                     item_surface += ch
                 else:
                     if len(item_tag) > 0:
-                        item_surface = '=' + item_surface
-                        out = item_lexical + "[" + item_tag + "]" + item_surface
-                        items.append(out)
-                        item_surface = ''
-                        item_tag = ''
-                        item_lexical = ''
+                        items.append((item_lexical, item_tag, item_surface))
+                        item_lexical, item_tag, item_surface, = '', '', ''
+
                     item_surface += ch
             elif state == 1:
                 if ch == '[':  # tag opening
                     state = 3
                     if len(item_tag) > 0:
-                        item_surface = '=' + item_surface
-                        out = item_lexical + "[" + item_tag + "]" + item_surface
-                        items.append(out)
-                        item_surface = ''
-                        item_tag = ''
-                        item_lexical = ''
+                        items.append((item_lexical, item_tag, item_surface))
+                        item_lexical, item_tag, item_surface, = '', '', ''
                 elif ch == ' ':  # beginning of next pair
                     state = 0
                 else:
@@ -537,11 +489,9 @@ class EmMorphPy:
                 else:
                     item_tag += ch
         if len(item_tag) > 0 or len(item_lexical) > 0 or len(item_surface) > 0:
-            item_surface = '=' + item_surface
-            out = item_lexical + "[" + item_tag + "]" + item_surface
-            items.append(out)
+            items.append((item_lexical, item_tag, item_surface))
 
-        return '+'.join(items)  # Ez megy a stemmerbe...
+        return items  # Ez megy a stemmerbe... '+'.join(...)
 
     def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
                  fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
@@ -577,7 +527,7 @@ class EmMorphPy:
         except OSError:
             pass
 
-    @functools.lru_cache(maxsize=2000)
+    @functools.lru_cache(maxsize=20000)
     def _spec_query(self, inp):
         output = []
         try:
@@ -602,12 +552,7 @@ class EmMorphPy:
                 danal = self._parse_stem(ret[1])
                 stem = self._stemmer_process(danal, self.loaded_conf)
                 if len(stem) > 0:  # Suppress incorrect words
-                    # Do not allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
-                    lemma, tag = stem
-                    lemma = lemma.replace(' ', '_')
-                    tag = tag.replace(' ', '_')
-                    danal = danal.replace(' ', '_')
-                    output.append((lemma, tag, danal))
+                    output.append((*stem, danal))  # lemma, tag, danal
 
         # Add extra anals
         output.extend(self.lexicon.get(inp, []))
@@ -619,18 +564,23 @@ class EmMorphPy:
 
         return output
 
+    # Do not allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
     def stem(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma, tag) for lemma, tag, _ in self._spec_query(inp))
+        return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'))
+                        for lemma, tag, _ in self._spec_query(inp))
 
     def analyze(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode(danal for _, _, danal in self._spec_query(inp))
+        return out_mode('+'.join(map(self.put_together, danal)).replace(' ', '_')
+                        for _, _, danal in self._spec_query(inp))
 
     def dstem(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma, tag, danal) for lemma, tag, danal in self._spec_query(inp))
+        return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'),
+                         '+'.join(map(self.put_together, danal)).replace(' ', '_'))
+                        for lemma, tag, danal in self._spec_query(inp))
 
     def test(self):
-        hfst_out_test = 'a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]'
-        danal_test = 'alom[/N]=alm+a[Poss.3Sg]=á+val[Ins]=val'
+        hfst_out_test = 'a:a l:l :o m:m :[/N] a:a :[Poss.3Sg] :[Nom]'
+        danal_test = [('alom', '/N', 'alm'), ('a', 'Poss.3Sg', 'á'), ('val', 'Ins', 'val')]
         loaded_conf = self._load_config(props_path)
         print('STEM', self._stemmer_process(danal_test, loaded_conf))
         print('STEM2', self._stemmer_process(self._parse_stem(hfst_out_test), loaded_conf))
