@@ -45,28 +45,6 @@ class MorphemeInfo:
     """
 
 
-class Stem:
-
-    def __init__(self):
-        self.morphs = []
-        # self.sz_accented_form = ''   # Not used
-        self.sz_stem = ''
-        self.stem_code = -1
-        self.compounds = 0
-        # self.compound_word = False   # Not used
-        # self.incorrect_word = False  # Redundant
-        # self.compound_delims = []    # Not used
-
-    """
-    def __str__(self):
-        return "morphs: {0} \n |sz_stem: {1} |stem_code: {2} |compounds: {3} " \
-               "|compound_word: {4} |incorrect_word: {5} |compound_delims: {6}".format(
-                str([str(m) for m in self.morphs]), self.sz_stem, self.stem_code, self.compounds,
-                self.compound_word, self.incorrect_word, self.compound_delims)
-
-    """
-
-
 class EmMorphPy:
 
     def _create_extra_lexicon(self):
@@ -169,7 +147,11 @@ class EmMorphPy:
         sure_compound = False
         prev_compound = False
 
-        stem = Stem()
+        # Stem
+        morphs = []
+        sz_stem = ''
+        stem_code = -1
+        compounds = 0
 
         for item_lexical, item_tag, item_surface in input_str:
             morph = MorphemeInfo()
@@ -217,7 +199,7 @@ class EmMorphPy:
             # if (m_GetCaseFromInput)  // lexical gets case state from surface
             #   CaseConvert(surface, (curr_analysis.morp.end()-1)->lexical/*prev_lexical*/);
             # else
-            if stem.compounds > 1 and hyphen_pos != len(stem.morphs) - 2:  # /*curr_analysis.compound_word*/
+            if compounds > 1 and hyphen_pos != len(morphs) - 2:  # /*curr_analysis.compound_word*/
                 # if it is in compound word: lowercase ("WolfGang"=>"Wolfgang")
                 morph.lexical = morph.lexical.lower()
 
@@ -230,21 +212,21 @@ class EmMorphPy:
             compound_member |= tmp_bool
             # morph.is_compound_member |= tmp_bool
 
-            stem.morphs.append(morph)
+            morphs.append(morph)
 
             if morph.is_stem:
                 if morph.lexical == '-':
-                    hyphen_pos = len(stem.morphs) - 1
+                    hyphen_pos = len(morphs) - 1
 
-                if stem.stem_code == -1:
-                    stem.stem_code = len(stem.morphs) - 1  # save pos...
+                if stem_code == -1:
+                    stem_code = len(morphs) - 1  # save pos...
 
-                last_stem_code = len(stem.morphs) - 1
+                last_stem_code = len(morphs) - 1
                 if prev_last_stem_code != -1 and morph.lexical != '-':
                     convert = False
                     # Mutate list in loop!
                     for i in range(last_stem_code, prev_last_stem_code - 1, -1):
-                        m = stem.morphs[i]
+                        m = morphs[i]
                         convert |= m.is_stem
                         if convert and m.is_derivative:
                             # TODO: A None itt nincs kezelve
@@ -260,7 +242,7 @@ class EmMorphPy:
             # ha cmember => növelem
             # ha tő ÉS jön egy compoundMember kepző => növelem
             if compound_member:
-                stem.compounds += 1
+                compounds += 1
                 look_for_compound = False
 
         """
@@ -288,48 +270,48 @@ class EmMorphPy:
             # ez biztos összetett szó, mert 2 egymast követő compundmember van benne
             # ha nincs benne FN, de képzett főnév igen, azt megmenti
             # look for stem if compounds
-            for n, m in enumerate(stem.morphs):
-                m = stem.morphs[n]  # Mutate list in loop!
+            for n, m in enumerate(morphs):
+                m = morphs[n]  # Mutate list in loop!
                 if Flags.STEM_IF_COMP in m.flags:
                     m.is_stem = True
                     m.category = tag_convert[m.category]  # TODO: A None itt nincs kezelve
                     m.flags = m.flags_conv
-                    stem.stem_code = n
+                    stem_code = n
                     last_stem_code = max(n, last_stem_code)
 
         # TODO: Simplify bool expression...
-        compound = stem.compounds > 1 and hyphen_pos == -1 or must_have_compounds > 0
+        compound = compounds > 1 and hyphen_pos == -1 or must_have_compounds > 0
         if hyphen_pos > 0 and compound:
             # kötőjeles akkor lehet összetett szó, ha a kötőjel előtt [compound before hyphen] all
             # "aa[FN][NOM]-bb[FN][NOM]" vagy "aa[FN]-bb[FN]"
             # pl "Árpad-ház"
 
-            m = stem.morphs[hyphen_pos - 1]
+            m = morphs[hyphen_pos - 1]
             # ha a kotojel elotti ures es az azt megelozo toalkoto =>
             # ha a kotojel elott rag van, akkor ez nem osszetett szo
             if Flags.COMP_BEFORE_HYPHEN not in m.flags or (hyphen_pos > 1 and len(m.lexical) == 0 and
                                                            len(m.surface) == 0 and
-                                                           not stem.morphs[hyphen_pos - 2].is_stem):
+                                                           not morphs[hyphen_pos - 2].is_stem):
                     compound = False
 
-        # stem.compound_word = compound
+        # compound_word = compound
 
         internal_punct = False
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
-        for n, m in enumerate(reversed(stem.morphs), start=1):
-            m = stem.morphs[-1*n]  # Mutate list in loop!
+        for n, m in enumerate(reversed(morphs), start=1):
+            m = morphs[-1*n]  # Mutate list in loop!
             if Flags.INT_PUNCT not in m.flags:
                 break
             internal_punct = True
             m.is_stem = False
 
-        while last_stem_code > 0 and not stem.morphs[last_stem_code].is_stem:
+        while last_stem_code > 0 and not morphs[last_stem_code].is_stem:
             last_stem_code -= 1
 
         if compound and not sure_compound:
             # összetett szavaknál a stemIfCompoundokat átalakítja
-            for n, m in enumerate(stem.morphs):
-                m = stem.morphs[n]  # Mutate list in loop!
+            for n, m in enumerate(morphs):
+                m = morphs[n]  # Mutate list in loop!
                 if Flags.STEM_IF_COMP in m.flags:
                     m.is_stem = True
                     m.category = tag_convert[m.category]  # TODO: A None itt nincs kezelve
@@ -340,10 +322,10 @@ class EmMorphPy:
         """
         # összetett szavaknál beteszi a + jelet...
         coffset = 0
-        for m in stem.morphs:
+        for m in morphs:
             if m.is_compound_member or m.is_compound_delimiter:
                 if coffset != 0:
-                    stem.compound_delims.append(coffset)  # az utolsó nem kell: ott már vége a szónak
+                    compound_delims.append(coffset)  # az utolsó nem kell: ott már vége a szónak
                 coffset += len(m.surface)
         """
 
@@ -352,43 +334,43 @@ class EmMorphPy:
         if internal_punct and hyphen_pos > 0:
             # végén van egy kötőjel, ha előtte ragozoztt szó áll, nem lehet szoösszetétel
             # pl. "magán-"
-            m = stem.morphs[hyphen_pos - 1]
+            m = morphs[hyphen_pos - 1]
             # ha a kötőjel előtti üres és az azt megelőző tőalkotó =>
             # hadd éljen, nem megy bele az ikerszó ágba
             # ez már ikerszó nem lehet
             if Flags.COMP_BEFORE_HYPHEN in m.flags and not (hyphen_pos > 1 and len(m.lexical) == 0
                                                             and len(m.surface) == 0
-                                                            and not stem.morphs[hyphen_pos - 2].is_stem):
+                                                            and not morphs[hyphen_pos - 2].is_stem):
                 internal_punct_and = False
 
         # beleégetjük hogy a szóközi kötőjel stem
-        for n, m in enumerate(stem.morphs[1:-1], start=1):
-            m = stem.morphs[n]
-            m.is_stem |= stem.morphs[n - 1].is_stem and stem.morphs[n + 1].is_stem and \
+        for n, m in enumerate(morphs[1:-1], start=1):
+            m = morphs[n]
+            m.is_stem |= morphs[n - 1].is_stem and morphs[n + 1].is_stem and \
                 (m.surface == '-' or m.lexical == '-')
 
         if internal_punct_and and hyphen_pos != -1 and not compound:
             # ikerszo
 
             half = False
-            half_pos = stem.stem_code  # hyphen_pos;//last_stem_code;//;
+            half_pos = stem_code  # hyphen_pos;//last_stem_code;//;
             for z in range(max(hyphen_pos - 1, 0), 0, -1):
-                if stem.morphs[z].is_stem:
+                if morphs[z].is_stem:
                     half_pos = z
                     break
 
             tmp1 = ''
             tmp2 = ''
-            for n, m in enumerate(stem.morphs):
+            for n, m in enumerate(morphs):
                 if m.lexical == '-':
                     half = True
                     half_pos = last_stem_code
 
                 if m.is_stem:
                     if n < half_pos and len(m.surface) != 0:
-                            stem.sz_stem += m.surface
+                            sz_stem += m.surface
                     else:
-                        stem.sz_stem += m.lexical
+                        sz_stem += m.lexical
                 else:
                     if not half:
                         tmp1 += m.category + ' '
@@ -397,20 +379,20 @@ class EmMorphPy:
 
             if tmp1 != tmp2:
                 # BAD input, stem is dropped
-                # stem.incorrect_word = True
-                stem.sz_stem += '<incorrect word>'
+                # incorrect_word = True
+                sz_stem += '<incorrect word>'
                 # return 0;
 
         else:
             # simple case
 
-            if len(stem.morphs) >= last_stem_code:
+            if len(morphs) >= last_stem_code:
                 for n in range(last_stem_code+1):
-                    if stem.morphs[n].is_stem:
+                    if morphs[n].is_stem:
                         if n < last_stem_code:
-                            stem.sz_stem += stem.morphs[n].surface
+                            sz_stem += morphs[n].surface
                         elif n == last_stem_code:  # /*curr_analysis.stem_code*/
-                            stem.sz_stem += stem.morphs[n].lexical
+                            sz_stem += morphs[n].lexical
 
         """
         //          if (m_regexp_stem_decision)
@@ -420,12 +402,12 @@ class EmMorphPy:
         //          }
         """
         # print("STEM_OUTPUT:", stem)
-        if stem.sz_stem.endswith('<incorrect word>'):
+        if sz_stem.endswith('<incorrect word>'):
             return ()
         else:
-            tag = ''.join('[{0}]'.format(m.category) for n, m in enumerate(stem.morphs)
+            tag = ''.join('[{0}]'.format(m.category) for n, m in enumerate(morphs)
                           if n >= last_stem_code or m.is_prefix)
-            return stem.sz_stem, tag
+            return sz_stem, tag
 
     @staticmethod
     def put_together(morph):
