@@ -23,26 +23,6 @@ class Flags(Enum):
     INT_PUNCT = 7
 
 
-class MorphemeInfo:
-    def __init__(self):
-        self.lexical = ""
-        self.surface = ""
-        self.category = ""
-        self.is_prefix = False
-        self.is_stem = False
-        self.is_derivative = False
-        self.flags = set()
-        self.flags_conv = set()
-
-    """
-    def __str__(self):
-        return "lexical: {0} |surface: {1} |category: {2} |is_prefix: {3} |is_stem: {4} |is_derivative: {5} " \
-               "|is_compound_member: {6} |is_compound_delimiter: |flags: {7} |flags_conv: {8}".format(
-                self.lexical, self.surface, self.category, self.is_prefix, self.is_stem, self.is_derivative,
-                self.is_compound_member, self.is_compound_delimiter, self.flags, self.flags_conv)
-    """
-
-
 class EmMorphPy:
 
     def _create_extra_lexicon(self):
@@ -151,81 +131,83 @@ class EmMorphPy:
         stem_code = -1
         compounds = 0
 
-        for item_lexical, item_tag, item_surface in input_str:
-            morph = MorphemeInfo()
-            morph.lexical = item_lexical
-            morph.surface = item_surface
-            sz_cur_cod = item_tag
-
+        for lexical, tag, surface in input_str:
             # 6-3-as szabály miatt (2011.07.18. NA: "Azt kéne csinálni, hogy a morfológia által
             #  visszaadott cimkék elején lévő részt a `-ig ki kell törölni mielőtt bármi mást csinálnál")
-            sz_cur_cod = sz_cur_cod[sz_cur_cod.find('`') + 1:]  # If not found -> -1 +1 = [0:] = the whole string
-            morph.flags = tag_config[sz_cur_cod]
+            tag = tag[tag.find('`') + 1:]  # If not found -> -1 +1 = [0:] = the whole string
+            flags = tag_config[tag]
 
-            morph.is_stem = Flags.STEM in morph.flags
-            compound_member = Flags.COMP_MEMBER in morph.flags
-            morph.is_compound_member = compound_member
+            is_stem = Flags.STEM in flags
+            compound_member = Flags.COMP_MEMBER in flags
 
             # conversion
-            tagc = tag_convert.get(sz_cur_cod)
-            morph.is_derivative = tagc is not None
-            morph.flags_conv = tag_config.get(tagc, set())  # None -> set(), None can be hashed also!
+            tagc = tag_convert.get(tag)
+            is_derivative = tagc is not None
+            flags_conv = tag_config.get(tagc, set())  # None -> set(), None can be hashed also!
 
             # tag replacement
-            r = tag_replace.get(sz_cur_cod)
+            r = tag_replace.get(tag)
             if r is not None:
-                sz_cur_cod = r
-                morph.flags = tag_config.get(sz_cur_cod, morph.flags)  # Replace if found else keep
+                tag = r
+                flags = tag_config.get(tag, flags)  # Replace if found else keep
 
-            morph.category = sz_cur_cod
-            morph.is_prefix = Flags.PREFIX in morph.flags
+            category = tag
+            is_prefix = Flags.PREFIX in flags
 
-            must_have_compounds += int(Flags.COMP_MUST_HAVE in morph.flags or
-                                       Flags.COMP_MUST_HAVE in morph.flags_conv)
+            must_have_compounds += int(Flags.COMP_MUST_HAVE in flags or
+                                       Flags.COMP_MUST_HAVE in flags_conv)
 
             # copy spec cars from lexical
-            lex = morph.lexical
+            lex = lexical
             if any(c in lex for c in copy2surface):  # else nothing to do :)
-                surf = morph.surface
+                surf = surface
                 for i, l_i in enumerate(lex):
                     if l_i in copy2surface:
                         surf = ''.join((surf[0:i], l_i, surf[i:]))
 
-                morph.surface = surf
+                surface = surf
 
             if compounds > 1 and hyphen_pos != len(morphs) - 2:
                 # if it is in compound word: lowercase ("WolfGang"=>"Wolfgang")
-                morph.lexical = morph.lexical.lower()
+                lexical = lexical.lower()
 
             # van-e 2 egymást követő compound member, (ha igen, tuti összetett)
             sure_compound |= prev_compound and compound_member
             prev_compound = compound_member
 
             # ha volt már tő és ez képző => a konvertáltjait megkeressük, ha compound member, akkor beállítjuk
-            tmp_bool = look_for_compound and Flags.COMP_MEMBER in morph.flags_conv
+            tmp_bool = look_for_compound and Flags.COMP_MEMBER in flags_conv
             compound_member |= tmp_bool
 
+            morph = {'lexical': lexical,
+                     'surface': surface,
+                     'category': category,
+                     'is_prefix': is_prefix,
+                     'is_stem': is_stem,
+                     'is_derivative': is_derivative,
+                     'flags': flags,
+                     'flags_conv': flags_conv}
             morphs.append(morph)
 
-            if morph.is_stem:
-                if morph.lexical == '-':
+            if morph['is_stem']:
+                if morph['lexical'] == '-':
                     hyphen_pos = len(morphs) - 1
 
                 if stem_code == -1:
                     stem_code = len(morphs) - 1  # save pos...
 
                 last_stem_code = len(morphs) - 1
-                if prev_last_stem_code != -1 and morph.lexical != '-':
+                if prev_last_stem_code != -1 and morph['lexical'] != '-':
                     convert = False
                     # Mutate list in loop!
                     for i in range(last_stem_code, prev_last_stem_code - 1, -1):
                         m = morphs[i]
-                        convert |= m.is_stem
-                        if convert and m.is_derivative:
+                        convert |= m['is_stem']
+                        if convert and m['is_derivative']:
                             # TODO: A None itt nincs kezelve
-                            m.category = tag_convert.get(m.category)
-                            m.flags = m.flags_conv
-                            m.is_stem |= m.flags is not None and Flags.STEM in m.flags
+                            m['category'] = tag_convert.get(m['category'])
+                            m['flags'] = m['flags_conv']
+                            m['is_stem'] |= m['flags'] is not None and Flags.STEM in m['flags']
 
                 prev_last_stem_code = last_stem_code
                 # első tőalkotó után bekapcsoljuk, ha ez True, akkor keresünk olyan képzőt,
@@ -265,10 +247,10 @@ class EmMorphPy:
             # look for stem if compounds
             for n, m in enumerate(morphs):
                 m = morphs[n]  # Mutate list in loop!
-                if Flags.STEM_IF_COMP in m.flags:
-                    m.is_stem = True
-                    m.category = tag_convert[m.category]  # TODO: A None itt nincs kezelve
-                    m.flags = m.flags_conv
+                if Flags.STEM_IF_COMP in m['flags']:
+                    m['is_stem'] = True
+                    m['category'] = tag_convert[m['category']]  # TODO: A None itt nincs kezelve
+                    m['flags'] = m['flags_conv']
                     stem_code = n
                     last_stem_code = max(n, last_stem_code)
 
@@ -282,30 +264,30 @@ class EmMorphPy:
             m = morphs[hyphen_pos - 1]
             # ha a kotojel elotti ures es az azt megelozo toalkoto =>
             # ha a kotojel elott rag van, akkor ez nem osszetett szo
-            if Flags.COMP_BEFORE_HYPHEN not in m.flags or (hyphen_pos > 1 and len(m.lexical) == 0 and
-                                                           len(m.surface) == 0 and
-                                                           not morphs[hyphen_pos - 2].is_stem):
+            if Flags.COMP_BEFORE_HYPHEN not in m['flags'] or (hyphen_pos > 1 and len(m['lexical']) == 0 and
+                                                              len(m['surface']) == 0 and
+                                                              not morphs[hyphen_pos - 2]['is_stem']):
                     compound = False
 
         internal_punct = False
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
         for n, m in enumerate(reversed(morphs), start=1):
             m = morphs[-1*n]  # Mutate list in loop!
-            if Flags.INT_PUNCT not in m.flags:
+            if Flags.INT_PUNCT not in m['flags']:
                 break
             internal_punct = True
             m.is_stem = False
 
-        while last_stem_code > 0 and not morphs[last_stem_code].is_stem:
+        while last_stem_code > 0 and not morphs[last_stem_code]['is_stem']:
             last_stem_code -= 1
 
         if compound and not sure_compound:  # összetett szavaknál a stemIfCompoundokat átalakítja
             for n, m in enumerate(morphs):
                 m = morphs[n]  # Mutate list in loop!
-                if Flags.STEM_IF_COMP in m.flags:
-                    m.is_stem = True
-                    m.category = tag_convert[m.category]  # TODO: A None itt nincs kezelve
-                    m.flags = m.flags_conv
+                if Flags.STEM_IF_COMP in m['flags']:
+                    m['is_stem'] = True
+                    m['category'] = tag_convert[m['category']]  # TODO: A None itt nincs kezelve
+                    m['flags'] = m['flags_conv']
                     if n >= last_stem_code:
                         last_stem_code = n
 
@@ -317,43 +299,43 @@ class EmMorphPy:
             m = morphs[hyphen_pos - 1]
             # ha a kötőjel előtti üres és az azt megelőző tőalkotó => hadd éljen, nem megy bele az ikerszó ágba
             # ez már ikerszó nem lehet
-            if Flags.COMP_BEFORE_HYPHEN in m.flags and not (hyphen_pos > 1 and len(m.lexical) == 0
-                                                            and len(m.surface) == 0
-                                                            and not morphs[hyphen_pos - 2].is_stem):
+            if Flags.COMP_BEFORE_HYPHEN in m['flags'] and not (hyphen_pos > 1 and len(m['lexical']) == 0
+                                                               and len(m['surface']) == 0
+                                                               and not morphs[hyphen_pos - 2]['is_stem']):
                 internal_punct_and = False
 
         # beleégetjük hogy a szóközi kötőjel stem
         for n, m in enumerate(morphs[1:-1], start=1):
             m = morphs[n]
-            m.is_stem |= morphs[n - 1].is_stem and morphs[n + 1].is_stem and \
-                (m.surface == '-' or m.lexical == '-')
+            m['is_stem'] |= morphs[n - 1]['is_stem'] and morphs[n + 1]['is_stem'] and \
+                (m['surface'] == '-' or m['lexical'] == '-')
 
         if internal_punct_and and hyphen_pos != -1 and not compound:  # ikerszo
 
             half = False
             half_pos = stem_code
             for z in range(max(hyphen_pos - 1, 0), 0, -1):
-                if morphs[z].is_stem:
+                if morphs[z]['is_stem']:
                     half_pos = z
                     break
 
             tmp1 = ''
             tmp2 = ''
             for n, m in enumerate(morphs):
-                if m.lexical == '-':
+                if m['lexical'] == '-':
                     half = True
                     half_pos = last_stem_code
 
                 if m.is_stem:
-                    if n < half_pos and len(m.surface) != 0:
-                            sz_stem += m.surface
+                    if n < half_pos and len(m['surface']) != 0:
+                            sz_stem += m['surface']
                     else:
-                        sz_stem += m.lexical
+                        sz_stem += m['lexical']
                 else:
                     if not half:
-                        tmp1 += m.category + ' '
+                        tmp1 += m['category'] + ' '
                     else:
-                        tmp2 += m.category + ' '
+                        tmp2 += m['category'] + ' '
 
             if tmp1 != tmp2:  # BAD input, stem is dropped
                 sz_stem += '<incorrect word>'
@@ -361,17 +343,17 @@ class EmMorphPy:
         else:  # simple case
             if len(morphs) >= last_stem_code:
                 for n in range(last_stem_code+1):
-                    if morphs[n].is_stem:
+                    if morphs[n]['is_stem']:
                         if n < last_stem_code:
-                            sz_stem += morphs[n].surface
+                            sz_stem += morphs[n]['surface']
                         elif n == last_stem_code:  # /*curr_analysis.stem_code*/
-                            sz_stem += morphs[n].lexical
+                            sz_stem += morphs[n]['lexical']
 
         if sz_stem.endswith('<incorrect word>'):
             return ()
         else:
-            tag = ''.join('[{0}]'.format(m.category) for n, m in enumerate(morphs)
-                          if n >= last_stem_code or m.is_prefix)
+            tag = ''.join('[{0}]'.format(m['category']) for n, m in enumerate(morphs)
+                          if n >= last_stem_code or m['is_prefix'])
             return sz_stem, tag
 
     @staticmethod
