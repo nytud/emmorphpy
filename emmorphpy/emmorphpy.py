@@ -28,38 +28,43 @@ class MorphemeInfo:
         self.lexical = ""
         self.surface = ""
         self.category = ""
-        self.is_prefix = False
-        self.is_stem = False
+        self.is_prefix = False  # Maybe redundant
+        self.is_stem = False  # Maybe redundant
         self.is_derivative = False
-        self.is_compound_member = False
-        self.is_compound_delimiter = False
+        # self.is_compound_member = False     # Not used
+        # self.is_compound_delimiter = False  # Not used
         self.flags = set()
         self.flags_conv = set()
 
+    """
     def __str__(self):
         return "lexical: {0} |surface: {1} |category: {2} |is_prefix: {3} |is_stem: {4} |is_derivative: {5} " \
                "|is_compound_member: {6} |is_compound_delimiter: |flags: {7} |flags_conv: {8}".format(
                 self.lexical, self.surface, self.category, self.is_prefix, self.is_stem, self.is_derivative,
                 self.is_compound_member, self.is_compound_delimiter, self.flags, self.flags_conv)
+    """
 
 
 class Stem:
 
     def __init__(self):
         self.morphs = []
-        # self.sz_accented_form = ''
+        # self.sz_accented_form = ''   # Not used
         self.sz_stem = ''
         self.stem_code = -1
         self.compounds = 0
-        self.compound_word = False
-        self.incorrect_word = False
-        self.compound_delims = []
+        # self.compound_word = False   # Not used
+        # self.incorrect_word = False  # Redundant
+        # self.compound_delims = []    # Not used
 
+    """
     def __str__(self):
         return "morphs: {0} \n |sz_stem: {1} |stem_code: {2} |compounds: {3} " \
                "|compound_word: {4} |incorrect_word: {5} |compound_delims: {6}".format(
                 str([str(m) for m in self.morphs]), self.sz_stem, self.stem_code, self.compounds,
                 self.compound_word, self.incorrect_word, self.compound_delims)
+
+    """
 
     def get_tags(self, all_tags):
         return ''.join('[{0}]'.format(m.category) for n, m in enumerate(self.morphs)
@@ -182,8 +187,8 @@ class EmMorphPy:
             morph.flags = tag_config[sz_cur_cod]
 
             morph.is_stem = Flags.STEM in morph.flags
-            morph.is_compound_member = Flags.COMP_MEMBER in morph.flags
-            compound_member = morph.is_compound_member
+            compound_member = Flags.COMP_MEMBER in morph.flags
+            morph.is_compound_member = compound_member
 
             # conversion
             tagc = tag_convert.get(sz_cur_cod)
@@ -197,7 +202,7 @@ class EmMorphPy:
                 morph.flags = tag_config.get(sz_cur_cod, morph.flags)  # Replace if found else keep
 
             morph.category = sz_cur_cod
-            morph.is_compound_delimiter = Flags.COMP_DELIM in morph.flags
+            # morph.is_compound_delimiter = Flags.COMP_DELIM in morph.flags
             morph.is_prefix = Flags.PREFIX in morph.flags
 
             must_have_compounds += int(Flags.COMP_MUST_HAVE in morph.flags or
@@ -233,7 +238,7 @@ class EmMorphPy:
             # ha volt már tő és ez képző => a konvertáltjait megkeressük, ha compound member, akkor beállítjuk
             tmp_bool = look_for_compound and Flags.COMP_MEMBER in morph.flags_conv
             compound_member |= tmp_bool
-            morph.is_compound_member |= tmp_bool
+            # morph.is_compound_member |= tmp_bool
 
             stem.morphs.append(morph)
 
@@ -319,7 +324,7 @@ class EmMorphPy:
                                                            not stem.morphs[hyphen_pos - 2].is_stem):
                     compound = False
 
-        stem.compound_word = compound
+        # stem.compound_word = compound
 
         internal_punct = False
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
@@ -344,6 +349,7 @@ class EmMorphPy:
                     if n >= last_stem_code:
                         last_stem_code = n
 
+        """
         # összetett szavaknál beteszi a + jelet...
         coffset = 0
         for m in stem.morphs:
@@ -351,6 +357,7 @@ class EmMorphPy:
                 if coffset != 0:
                     stem.compound_delims.append(coffset)  # az utolsó nem kell: ott már vége a szónak
                 coffset += len(m.surface)
+        """
 
         internal_punct_and = True
         if internal_punct and hyphen_pos > 0:
@@ -402,7 +409,7 @@ class EmMorphPy:
 
             if tmp1 != tmp2:
                 # BAD input, stem is dropped
-                stem.incorrect_word = True
+                # stem.incorrect_word = True
                 stem.sz_stem += '<incorrect word>'
                 # return 0;
 
@@ -427,7 +434,7 @@ class EmMorphPy:
         //          }
         """
         # print("STEM_OUTPUT:", stem)
-        if stem.incorrect_word:
+        if stem.sz_stem.endswith('<incorrect word>'):
             return ()
         else:
             return stem.sz_stem, stem.get_tags(False)
