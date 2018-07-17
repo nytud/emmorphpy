@@ -28,11 +28,9 @@ class MorphemeInfo:
         self.lexical = ""
         self.surface = ""
         self.category = ""
-        self.is_prefix = False  # Maybe redundant
-        self.is_stem = False  # Maybe redundant
+        self.is_prefix = False
+        self.is_stem = False
         self.is_derivative = False
-        # self.is_compound_member = False     # Not used
-        # self.is_compound_delimiter = False  # Not used
         self.flags = set()
         self.flags_conv = set()
 
@@ -180,7 +178,6 @@ class EmMorphPy:
                 morph.flags = tag_config.get(sz_cur_cod, morph.flags)  # Replace if found else keep
 
             morph.category = sz_cur_cod
-            # morph.is_compound_delimiter = Flags.COMP_DELIM in morph.flags
             morph.is_prefix = Flags.PREFIX in morph.flags
 
             must_have_compounds += int(Flags.COMP_MUST_HAVE in morph.flags or
@@ -196,10 +193,7 @@ class EmMorphPy:
 
                 morph.surface = surf
 
-            # if (m_GetCaseFromInput)  // lexical gets case state from surface
-            #   CaseConvert(surface, (curr_analysis.morp.end()-1)->lexical/*prev_lexical*/);
-            # else
-            if compounds > 1 and hyphen_pos != len(morphs) - 2:  # /*curr_analysis.compound_word*/
+            if compounds > 1 and hyphen_pos != len(morphs) - 2:
                 # if it is in compound word: lowercase ("WolfGang"=>"Wolfgang")
                 morph.lexical = morph.lexical.lower()
 
@@ -210,7 +204,6 @@ class EmMorphPy:
             # ha volt már tő és ez képző => a konvertáltjait megkeressük, ha compound member, akkor beállítjuk
             tmp_bool = look_for_compound and Flags.COMP_MEMBER in morph.flags_conv
             compound_member |= tmp_bool
-            # morph.is_compound_member |= tmp_bool
 
             morphs.append(morph)
 
@@ -236,7 +229,7 @@ class EmMorphPy:
 
                 prev_last_stem_code = last_stem_code
                 # első tőalkotó után bekapcsoljuk, ha ez True, akkor keresünk olyan képzőt,
-                #  ami compound membert csinál belőle
+                # ami compound membert csinál belőle
                 look_for_compound |= not derivative
 
             # ha cmember => növelem
@@ -294,8 +287,6 @@ class EmMorphPy:
                                                            not morphs[hyphen_pos - 2].is_stem):
                     compound = False
 
-        # compound_word = compound
-
         internal_punct = False
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
         for n, m in enumerate(reversed(morphs), start=1):
@@ -308,8 +299,7 @@ class EmMorphPy:
         while last_stem_code > 0 and not morphs[last_stem_code].is_stem:
             last_stem_code -= 1
 
-        if compound and not sure_compound:
-            # összetett szavaknál a stemIfCompoundokat átalakítja
+        if compound and not sure_compound:  # összetett szavaknál a stemIfCompoundokat átalakítja
             for n, m in enumerate(morphs):
                 m = morphs[n]  # Mutate list in loop!
                 if Flags.STEM_IF_COMP in m.flags:
@@ -319,24 +309,13 @@ class EmMorphPy:
                     if n >= last_stem_code:
                         last_stem_code = n
 
-        """
-        # összetett szavaknál beteszi a + jelet...
-        coffset = 0
-        for m in morphs:
-            if m.is_compound_member or m.is_compound_delimiter:
-                if coffset != 0:
-                    compound_delims.append(coffset)  # az utolsó nem kell: ott már vége a szónak
-                coffset += len(m.surface)
-        """
-
         # TODO: Simplify bool expression...
         internal_punct_and = True
         if internal_punct and hyphen_pos > 0:
             # végén van egy kötőjel, ha előtte ragozoztt szó áll, nem lehet szoösszetétel
             # pl. "magán-"
             m = morphs[hyphen_pos - 1]
-            # ha a kötőjel előtti üres és az azt megelőző tőalkotó =>
-            # hadd éljen, nem megy bele az ikerszó ágba
+            # ha a kötőjel előtti üres és az azt megelőző tőalkotó => hadd éljen, nem megy bele az ikerszó ágba
             # ez már ikerszó nem lehet
             if Flags.COMP_BEFORE_HYPHEN in m.flags and not (hyphen_pos > 1 and len(m.lexical) == 0
                                                             and len(m.surface) == 0
@@ -349,11 +328,10 @@ class EmMorphPy:
             m.is_stem |= morphs[n - 1].is_stem and morphs[n + 1].is_stem and \
                 (m.surface == '-' or m.lexical == '-')
 
-        if internal_punct_and and hyphen_pos != -1 and not compound:
-            # ikerszo
+        if internal_punct_and and hyphen_pos != -1 and not compound:  # ikerszo
 
             half = False
-            half_pos = stem_code  # hyphen_pos;//last_stem_code;//;
+            half_pos = stem_code
             for z in range(max(hyphen_pos - 1, 0), 0, -1):
                 if morphs[z].is_stem:
                     half_pos = z
@@ -377,15 +355,10 @@ class EmMorphPy:
                     else:
                         tmp2 += m.category + ' '
 
-            if tmp1 != tmp2:
-                # BAD input, stem is dropped
-                # incorrect_word = True
+            if tmp1 != tmp2:  # BAD input, stem is dropped
                 sz_stem += '<incorrect word>'
-                # return 0;
 
-        else:
-            # simple case
-
+        else:  # simple case
             if len(morphs) >= last_stem_code:
                 for n in range(last_stem_code+1):
                     if morphs[n].is_stem:
@@ -394,14 +367,6 @@ class EmMorphPy:
                         elif n == last_stem_code:  # /*curr_analysis.stem_code*/
                             sz_stem += morphs[n].lexical
 
-        """
-        //          if (m_regexp_stem_decision)
-        //          {
-        //              //call regular function
-        //              SelectStem(curr_analysis);
-        //          }
-        """
-        # print("STEM_OUTPUT:", stem)
         if sz_stem.endswith('<incorrect word>'):
             return ()
         else:
