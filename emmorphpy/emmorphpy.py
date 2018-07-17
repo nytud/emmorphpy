@@ -66,10 +66,6 @@ class Stem:
 
     """
 
-    def get_tags(self, all_tags):
-        return ''.join('[{0}]'.format(m.category) for n, m in enumerate(self.morphs)
-                       if all_tags or n >= self.stem_code or m.is_prefix)
-
 
 class EmMorphPy:
 
@@ -150,18 +146,18 @@ class EmMorphPy:
         unwanted_patterns = [re.compile(props.get('stemmer.exclude{0}'.format(n)))
                              for n in range(100) if props.get('stemmer.exclude{0}'.format(n)) is not None]
 
-        copy2surface_str = props.get('stemmer.copy2surface', '')
+        copy2surface = set(props.get('stemmer.copy2surface', ''))
 
         hfst_params = props.get('analyzer.params', '').split()
         if len(hfst_params) > 0:
             hfst_params = hfst_params[:-1]  # Cut the FSA
 
-        return item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str,\
+        return item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface,\
             hfst_params
 
     @staticmethod
     def _stemmer_process(input_str, conf):
-        item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface_str, _ = conf
+        item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface, _ = conf
 
         derivative = False
         must_have_compounds = 0  # how many morphemes with "compound must have" property
@@ -209,18 +205,12 @@ class EmMorphPy:
                                        Flags.COMP_MUST_HAVE in morph.flags_conv)
 
             # copy spec cars from lexical
-            if len(copy2surface_str) > 0:  # else nothing to do :)
-                i = 0
-                lex = morph.lexical
+            lex = morph.lexical
+            if any(c in lex for c in copy2surface):  # else nothing to do :)
                 surf = morph.surface
-                while i < len(surf):  # Mutate out in the loop!
-                    if i >= len(lex):
-                        break
-                    if copy2surface_str.find(lex[i]) != -1:
-                        surf = ''.join((surf[0:i], lex[i], surf[i:]))
-                    elif lex[i] != surf[i]:
-                        break
-                    i += 1
+                for i, l_i in enumerate(lex):
+                    if l_i in copy2surface:
+                        surf = ''.join((surf[0:i], l_i, surf[i:]))
 
                 morph.surface = surf
 
@@ -305,9 +295,9 @@ class EmMorphPy:
                     m.category = tag_convert[m.category]  # TODO: A None itt nincs kezelve
                     m.flags = m.flags_conv
                     stem.stem_code = n
-                    if n >= last_stem_code:
-                        last_stem_code = n
+                    last_stem_code = max(n, last_stem_code)
 
+        # TODO: Simplify bool expression...
         compound = stem.compounds > 1 and hyphen_pos == -1 or must_have_compounds > 0
         if hyphen_pos > 0 and compound:
             # kötőjeles akkor lehet összetett szó, ha a kötőjel előtt [compound before hyphen] all
@@ -317,8 +307,6 @@ class EmMorphPy:
             m = stem.morphs[hyphen_pos - 1]
             # ha a kotojel elotti ures es az azt megelozo toalkoto =>
             # ha a kotojel elott rag van, akkor ez nem osszetett szo
-
-            # TODO: Simplify bool expression...
             if Flags.COMP_BEFORE_HYPHEN not in m.flags or (hyphen_pos > 1 and len(m.lexical) == 0 and
                                                            len(m.surface) == 0 and
                                                            not stem.morphs[hyphen_pos - 2].is_stem):
@@ -359,6 +347,7 @@ class EmMorphPy:
                 coffset += len(m.surface)
         """
 
+        # TODO: Simplify bool expression...
         internal_punct_and = True
         if internal_punct and hyphen_pos > 0:
             # végén van egy kötőjel, ha előtte ragozoztt szó áll, nem lehet szoösszetétel
@@ -367,7 +356,6 @@ class EmMorphPy:
             # ha a kötőjel előtti üres és az azt megelőző tőalkotó =>
             # hadd éljen, nem megy bele az ikerszó ágba
             # ez már ikerszó nem lehet
-            # TODO: Simplify bool expression...
             if Flags.COMP_BEFORE_HYPHEN in m.flags and not (hyphen_pos > 1 and len(m.lexical) == 0
                                                             and len(m.surface) == 0
                                                             and not stem.morphs[hyphen_pos - 2].is_stem):
@@ -424,8 +412,6 @@ class EmMorphPy:
                         elif n == last_stem_code:  # /*curr_analysis.stem_code*/
                             stem.sz_stem += stem.morphs[n].lexical
 
-        stem.stem_code = last_stem_code
-
         """
         //          if (m_regexp_stem_decision)
         //          {
@@ -437,7 +423,9 @@ class EmMorphPy:
         if stem.sz_stem.endswith('<incorrect word>'):
             return ()
         else:
-            return stem.sz_stem, stem.get_tags(False)
+            tag = ''.join('[{0}]'.format(m.category) for n, m in enumerate(stem.morphs)
+                          if n >= last_stem_code or m.is_prefix)
+            return stem.sz_stem, tag
 
     @staticmethod
     def put_together(morph):
