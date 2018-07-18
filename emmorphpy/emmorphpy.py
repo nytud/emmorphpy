@@ -4,7 +4,6 @@
 import jprops
 
 import os
-import re
 import sys
 import functools
 import subprocess
@@ -91,8 +90,9 @@ class EmMorphPy:
                            for t in props.get('stemmer.replace', '').split(item_sep)
                            if len(t.split(value_sep, maxsplit=1)) == 2)
 
-        unwanted_patterns = [re.compile(props.get('stemmer.exclude{0}'.format(n)))
-                             for n in range(100) if props.get('stemmer.exclude{0}'.format(n)) is not None]
+        # Not used
+        # unwanted_patterns = [re.compile(props.get('stemmer.exclude{0}'.format(n)))
+        #                      for n in range(100) if props.get('stemmer.exclude{0}'.format(n)) is not None]
 
         copy2surface = set(props.get('stemmer.copy2surface', ''))
 
@@ -100,12 +100,10 @@ class EmMorphPy:
         if len(hfst_params) > 0:
             hfst_params = hfst_params[:-1]  # Cut the FSA
 
-        return item_sep, value_sep, tag_config, tag_convert, tag_replace, unwanted_patterns, copy2surface,\
-            hfst_params
+        return tag_config, tag_convert, tag_replace, copy2surface, hfst_params
 
     @staticmethod
-    def _stemmer_process(input_str, conf):
-        _, _, tag_config, tag_convert, tag_replace, _, copy2surface, _ = conf
+    def _stemmer_process(input_str, tag_config, tag_convert, tag_replace, copy2surface):
 
         STEM = 0
         PREFIX = 1
@@ -133,9 +131,6 @@ class EmMorphPy:
         compounds = 0
 
         for lexical, category, surface in input_str:
-            # 6-3-as szabály miatt (2011.07.18. NA: "Azt kéne csinálni, hogy a morfológia által
-            #  visszaadott cimkék elején lévő részt a `-ig ki kell törölni mielőtt bármi mást csinálnál")
-            category = category[category.find('`') + 1:]  # If not found -> -1 +1 = [0:] = the whole string
             flags = tag_config[category]
 
             is_stem = STEM in flags
@@ -395,8 +390,8 @@ class EmMorphPy:
     def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
                  fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
                  lexicon=None, exceptions=None):
-        self.loaded_conf = self._load_config(props)
-        params = self.loaded_conf[-1]  # HFST params
+        self.loaded_conf = list(self._load_config(props))
+        params = self.loaded_conf.pop()  # HFST params
 
         # Init extra anals
         if lexicon is None:
@@ -417,6 +412,13 @@ class EmMorphPy:
             print('ERROR: hfst-lookup not found at: {0} !'.format(hfst_lookup), file=sys.stderr)
             exit(1)
 
+        # Store frequent methods for easier access
+        self.proc_wait = self.p.wait
+        self.proc_stdin = self.p.stdin
+        self.proc_stdout_readline = self.p.stdout.readline
+        self.proc_stderr_read = self.p.stderr.read
+
+        # Test HFST at init
         self._spec_query('test')
 
     def close(self):
@@ -429,27 +431,36 @@ class EmMorphPy:
     @functools.lru_cache(maxsize=20000)
     def _spec_query(self, inp):
         output = []
+        proc_wait = self.proc_wait
+        proc_stdin = self.proc_stdin
+        proc_stdout_readline = self.proc_stdout_readline
+        proc_stderr_read = self.proc_stderr_read
+
+        parse_stem = self._parse_stem
+        stemmer_process = self._stemmer_process
+        tag_config, tag_convert, tag_replace, copy2surface = self.loaded_conf
+
         try:
-            self.p.stdin.write('{0}\n'.format(inp).encode('UTF-8'))
-            self.p.stdin.flush()
+            proc_stdin.write('{0}\n'.format(inp).encode('UTF-8'))
+            proc_stdin.flush()
         except BrokenPipeError:
-            print(self.p.stderr.read().decode('UTF-8').rstrip(), file=sys.stderr)
-            exit(self.p.wait())
+            print(proc_stderr_read().decode('UTF-8').rstrip(), file=sys.stderr)
+            exit(proc_wait())
 
         while True:
             out = ''
             try:
-                out = self.p.stdout.readline()
+                out = proc_stdout_readline()
             except BrokenPipeError:
-                print(self.p.stderr.read().decode('UTF-8').rstrip(), file=sys.stderr)
-                exit(self.p.wait())
+                print(proc_stderr_read().decode('UTF-8').rstrip(), file=sys.stderr)
+                exit(proc_wait())
 
             if len(out) <= 1:
                 break
             ret = out.decode('UTF-8').strip().split('\t')
             if len(ret) == 3 and not ret[1].endswith('+?'):
-                danal = self._parse_stem(ret[1])
-                stem = self._stemmer_process(danal, self.loaded_conf)
+                danal = parse_stem(ret[1])
+                stem = stemmer_process(danal, tag_config, tag_convert, tag_replace, copy2surface)
                 if len(stem) > 0:  # Suppress incorrect words
                     output.append((*stem, danal))  # lemma, tag, danal
 
@@ -480,9 +491,9 @@ class EmMorphPy:
     def test(self):
         hfst_out_test = 'a:a l:l :o m:m :[/N] a:a :[Poss.3Sg] :[Nom]'
         danal_test = [('alom', '/N', 'alm'), ('a', 'Poss.3Sg', 'á'), ('val', 'Ins', 'val')]
-        loaded_conf = self._load_config(props_path)
-        print('STEM', self._stemmer_process(danal_test, loaded_conf))
-        print('STEM2', self._stemmer_process(self._parse_stem(hfst_out_test), loaded_conf))
+        loaded_conf = self._load_config(props_path)[:-1]
+        print('STEM', self._stemmer_process(danal_test, *loaded_conf))
+        print('STEM2', self._stemmer_process(self._parse_stem(hfst_out_test), *loaded_conf))
 
 
 if __name__ == '__main__':
