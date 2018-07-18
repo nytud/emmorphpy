@@ -9,7 +9,6 @@ import functools
 import subprocess
 from collections import defaultdict
 
-
 morph_flags = {'STEM': 0, 'PREFIX': 1, 'COMP_MEMBER': 2, 'COMP_MUST_HAVE': 3, 'COMP_BEFORE_HYPHEN': 4,
                'STEM_IF_COMP': 5, 'INT_PUNCT': 6}
 
@@ -90,6 +89,49 @@ class EmMorphPy:
                            for t in props.get('stemmer.replace', '').split(item_sep)
                            if len(t.split(value_sep, maxsplit=1)) == 2)
 
+        # Precompute mappings into Look-up tables
+        STEM = 0
+        PREFIX = 1
+        COMP_MEMBER = 2
+        COMP_MUST_HAVE = 3
+
+        tag_config_is_stem = {}
+        tag_config_compound_member = {}
+        tag_convert_is_derivative = {}
+        tag_convert_config = {}
+        tag_replace_config = {}
+        tag_replace_config_is_prefix = {}
+        tag_replace_config_must_have_compound = {}
+
+        for category, flags in tag_config.items():
+            tag_config_is_stem[category] = STEM in flags
+            tag_config_compound_member[category] = COMP_MEMBER in flags
+
+            tagc = tag_convert.get(category) is not None
+            tag_convert_is_derivative[category] = tagc
+            flags_conv = tag_config.get(tagc, set())  # None -> set(), None can be hashed also!
+            tag_convert_config[category] = flags_conv
+
+            category_replaced = tag_replace.get(category, category)
+            flags_conv = tag_config.get(category_replaced, set())
+            tag_replace_config[category] = flags_conv
+            tag_replace_config_is_prefix[category] = PREFIX in flags_conv
+
+            tag_replace_config_must_have_compound[category] = int(COMP_MUST_HAVE in flags or
+                                                                  COMP_MUST_HAVE in flags_conv)
+
+        for category, category_conv in tag_convert.items():
+            tag_convert_is_derivative[category] = True
+            flags_conv = tag_config.get(category_conv, set())  # None -> set(), None can be hashed also!
+            tag_convert_config[category] = flags_conv
+
+        for category, category_replaced in tag_replace.items():
+            flags_conv = tag_config.get(category_replaced, set())
+            tag_replace_config[category] = flags_conv
+            tag_replace_config_is_prefix[category] = PREFIX in flags_conv
+            tag_replace_config_must_have_compound[category] = int(COMP_MUST_HAVE in tag_config.get(category, set()) or
+                                                                  COMP_MUST_HAVE in flags_conv)
+
         # Not used
         # unwanted_patterns = [re.compile(props.get('stemmer.exclude{0}'.format(n)))
         #                      for n in range(100) if props.get('stemmer.exclude{0}'.format(n)) is not None]
@@ -100,15 +142,28 @@ class EmMorphPy:
         if len(hfst_params) > 0:
             hfst_params = hfst_params[:-1]  # Cut the FSA
 
-        return tag_config, tag_convert, tag_replace, copy2surface, hfst_params
+        # Bind methods for faster access
+        tag_config_is_stem = tag_config_is_stem.get
+        tag_config_compound_member = tag_config_compound_member.get
+        tag_convert_is_derivative = tag_convert_is_derivative.get
+        tag_convert_config = tag_convert_config.get
+        tag_replace = tag_replace.get
+        tag_replace_config = tag_replace_config.get
+        tag_replace_config_is_prefix = tag_replace_config_is_prefix.get
+        tag_replace_config_must_have_compound = tag_replace_config_must_have_compound.get
+
+        return tag_convert, tag_replace, tag_config_is_stem, tag_config_compound_member, tag_convert_is_derivative, \
+            tag_convert_config, tag_replace_config, tag_replace_config_is_prefix, \
+            tag_replace_config_must_have_compound, copy2surface, hfst_params
 
     @staticmethod
-    def _stemmer_process(input_str, tag_config, tag_convert, tag_replace, copy2surface):
+    def _stemmer_process(input_str, tag_convert, tag_replace_get, tag_config_is_stem_get,
+                         tag_config_compound_member_get, tag_convert_is_derivative_get, tag_convert_config_get,
+                         tag_replace_config_get, tag_replace_config_is_prefix_get,
+                         tag_replace_config_must_have_compound_get, copy2surface):
 
         STEM = 0
-        PREFIX = 1
         COMP_MEMBER = 2
-        COMP_MUST_HAVE = 3
         COMP_BEFORE_HYPHEN = 4
         STEM_IF_COMP = 5
         INT_PUNCT = 6
@@ -130,26 +185,23 @@ class EmMorphPy:
         stem_code = -1
         compounds = 0
 
-        for lexical, category, surface in input_str:
-            flags = tag_config[category]
+        # bind methods for easier access
+        tag_convert_get = tag_convert.get
 
-            is_stem = STEM in flags
-            compound_member = COMP_MEMBER in flags
+        for lexical, category, surface in input_str:
+            is_stem = tag_config_is_stem_get(category, False)
+            compound_member = tag_config_compound_member_get(category, False)
 
             # conversion
-            tagc = tag_convert.get(category)
-            is_derivative = tagc is not None
-            flags_conv = tag_config.get(tagc, set())  # None -> set(), None can be hashed also!
+            is_derivative = tag_convert_is_derivative_get(category, False)
+            flags_conv = tag_convert_config_get(category, set())
 
             # tag replacement
-            r = tag_replace.get(category)
-            if r is not None:
-                category = r
-                flags = tag_config.get(category, flags)  # Replace if found else keep
+            category = tag_replace_get(category, category)
+            flags = tag_replace_config_get(category, set())  # Replace if found else keep
 
-            is_prefix = PREFIX in flags
-            must_have_compounds += int(COMP_MUST_HAVE in flags or
-                                       COMP_MUST_HAVE in flags_conv)
+            is_prefix = tag_replace_config_is_prefix_get(category, False)
+            must_have_compounds += tag_replace_config_must_have_compound_get(category, 0)
 
             # copy spec cars from lexical
             lex = lexical
@@ -198,7 +250,7 @@ class EmMorphPy:
                         m = morphs[i]
                         convert |= m['is_stem']
                         if convert and m['is_derivative']:
-                            m['category'] = tag_convert.get(m['category'])  # TODO: A None itt nincs kezelve
+                            m['category'] = tag_convert_get(m['category'])  # TODO: A None itt nincs kezelve
                             fc = m['flags_conv']
                             m['flags'] = fc
                             m['is_stem'] |= STEM in fc
@@ -438,7 +490,9 @@ class EmMorphPy:
 
         parse_stem = self._parse_stem
         stemmer_process = self._stemmer_process
-        tag_config, tag_convert, tag_replace, copy2surface = self.loaded_conf
+        tag_convert, tag_replace, tag_config_is_stem, tag_config_compound_member, tag_convert_is_derivative, \
+            tag_convert_config, tag_replace_config, tag_replace_config_is_prefix, \
+            tag_replace_config_must_have_compound, copy2surface = self.loaded_conf
 
         try:
             proc_stdin.write('{0}\n'.format(inp).encode('UTF-8'))
@@ -460,7 +514,10 @@ class EmMorphPy:
             ret = out.decode('UTF-8').strip().split('\t')
             if len(ret) == 3 and not ret[1].endswith('+?'):
                 danal = parse_stem(ret[1])
-                stem = stemmer_process(danal, tag_config, tag_convert, tag_replace, copy2surface)
+                stem = stemmer_process(danal, tag_convert, tag_replace, tag_config_is_stem, tag_config_compound_member,
+                                       tag_convert_is_derivative, tag_convert_config, tag_replace_config,
+                                       tag_replace_config_is_prefix, tag_replace_config_must_have_compound,
+                                       copy2surface)
                 if len(stem) > 0:  # Suppress incorrect words
                     output.append((*stem, danal))  # lemma, tag, danal
 
