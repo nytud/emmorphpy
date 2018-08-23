@@ -34,6 +34,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
      - Lemmatization: https://emmorph.herokuapp.com/stem/működik
      - Detailed analysis: https://emmorph.herokuapp.com/analyze/működik
      - Lemmatisation with the corresponding detailed analysis: https://emmorph.herokuapp.com/dstem/működik
+     - The library also support the `bach_` prefix (eg. batch_analyze) to handle multiple words at once. (See examples for details.)
 
 	```python
 	>>> import requests
@@ -44,6 +45,16 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	>>> json.loads(requests.get('https://emmorph.herokuapp.com/analyze/' + word).text)[word]
 	['működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']
 	>>> json.loads(requests.get('https://emmorph.herokuapp.com/dstem/' + word).text)[word]
+	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']]
+	>>> words = {'words': [word, word + '2', 'etc.']}
+	>>> words = json.loads(requests.post('https://emmorph.herokuapp.com/batch_stem', json=words).text)
+	>>> print(words[word])
+	[['működik', '[/V][Prs.Def.3Pl]'], ['működik', '[/V][Prs.NDef.3Sg]']]
+	>>> words = json.loads(requests.post('https://emmorph.herokuapp.com/batch_analyze', json=words).text)
+	>>> print(words[word])
+	['működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']
+	>>> words = json.loads(requests.post('https://emmorph.herokuapp.com/batch_dstem', json=words).text)
+	>>> print(words[word])
 	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']]
 	```
  

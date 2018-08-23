@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8, vim: expandtab:ts=4 -*-
 
-from flask import Flask
+from flask import Flask, request, abort
 from flask_restful import Resource, Api
 
 # Import emMorphPy wrapper
@@ -40,7 +40,7 @@ class EmMorphPyREST(Resource):
     @staticmethod
     @app.route('/')
     def usage():
-            return 'Usage: /stem/word, /analyze/word or /dstem/word'
+            return 'Usage: /stem/word, /analyze/word, /dstem/word, /batch_stem, /batch_analyze or /batch_dstem'
 
     @staticmethod
     @app.route('/stem/')
@@ -77,6 +77,51 @@ class EmMorphPyREST(Resource):
         with emmorphpy_lock:
             stem = emmorphpy_morphology.analyze(token)
         return jsonify(**{token: stem})
+
+    @staticmethod
+    @app.route('/batch_stem')
+    def batch_stem_usage():
+            return 'Usage: HTTP POST /batch_stem a JSON dict with "words" as key and the list of words as value'
+
+    @staticmethod
+    @app.route('/batch_stem', methods=['POST'])
+    def batch_stem():
+        if not request.json:
+            abort(400)
+        data = set(request.get_json()['words'])
+        with emmorphpy_lock:
+            stems = {token: emmorphpy_morphology.stem(token) for token in data}
+        return jsonify(**stems)
+
+    @staticmethod
+    @app.route('/batch_dstem')
+    def batch_dstem_usage():
+            return 'Usage: HTTP POST /batch_dstem a JSON dict with "words" as key and the list of words as value'
+
+    @staticmethod
+    @app.route('/batch_dstem', methods=['POST'])
+    def batch_dstem():
+        if not request.json:
+            abort(400)
+        data = set(request.get_json()['words'])
+        with emmorphpy_lock:
+            stems = {token: emmorphpy_morphology.dstem(token) for token in data}
+        return jsonify(**stems)
+
+    @staticmethod
+    @app.route('/batch_analyze')
+    def batch_analyze_usage():
+            return 'Usage: HTTP POST /batch_analyze a JSON dict with "words" as key and the list of words as value'
+
+    @staticmethod
+    @app.route('/batch_analyze', methods=['POST'])
+    def batch_analyze():
+        if not request.json:
+            abort(400)
+        data = set(request.get_json()['words'])
+        with emmorphpy_lock:
+            stems = {token: emmorphpy_morphology.analyze(token) for token in data}
+        return jsonify(**stems)
 
 
 if __name__ == '__main__':
