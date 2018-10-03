@@ -21,40 +21,40 @@ class EmMorphPy:
         that is a dictionary, each key is the wordform,
         corresponding values are stored in a list of tuples.
 
-        e.g: lexicon = { 'utána': [('utána', '[KOT]', 'DETAILED_ANALYSIS')] }
+        e.g: lexicon = { 'utána': [('utána', '[KOT]', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')] }
         """
-        self.lexicon = {'.': [('.', '[Punct]', '')],
-                        ',': [(',', '[Punct]', '')],
-                        ';': [(';', '[Punct]', '')],
-                        ':': [(':', '[Punct]', '')],
-                        '!': [('!', '[Punct]', '')],
-                        '(': [('(', '[Punct]', '')],
-                        ')': [(')', '[Punct]', '')],
-                        '[': [('[', '[Punct]', '')],
-                        ']': [(']', '[Punct]', '')],
-                        '«': [('«', '[Punct]', '')],
-                        '»': [('»', '[Punct]', '')],
-                        '"': [('"', '[Punct]', '')],
-                        '·': [('·', '[Punct]', '')],
-                        '•': [('•', '[Punct]', '')],
-                        '=': [('=', '[Punct]', '')],
-                        '-': [('-', '[Punct]', '')],
-                        '—': [('—', '[Punct]', '')],
-                        '+': [('+', '[Punct]', '')],
-                        '&': [('&', '[Punct]', '')],
-                        '→': [('→', '[Punct]', '')],
-                        '…': [('…', '[Punct]', '')],
-                        '`': [('`', '[Punct]', '')],
-                        '?': [('?', '[Punct]', '')],
-                        '?!': [('?!', '[Punct]', '')],
-                        '\'': [('\'', '[Punct]', '')],
-                        '.........': [('.........', '[Punct]', '')],
-                        '.......': [('.......', '[Punct]', '')],
-                        '......': [('......', '[Punct]', '')],
-                        '.....': [('.....', '[Punct]', '')],
-                        '....': [('....', '[Punct]', '')],
-                        '...': [('...', '[Punct]', '')],
-                        '..': [('..', '[Punct]', '')]
+        self.lexicon = {'.': [('.', '[Punct]', '', '')],
+                        ',': [(',', '[Punct]', '', '')],
+                        ';': [(';', '[Punct]', '', '')],
+                        ':': [(':', '[Punct]', '', '')],
+                        '!': [('!', '[Punct]', '', '')],
+                        '(': [('(', '[Punct]', '', '')],
+                        ')': [(')', '[Punct]', '', '')],
+                        '[': [('[', '[Punct]', '', '')],
+                        ']': [(']', '[Punct]', '', '')],
+                        '«': [('«', '[Punct]', '', '')],
+                        '»': [('»', '[Punct]', '', '')],
+                        '"': [('"', '[Punct]', '', '')],
+                        '·': [('·', '[Punct]', '', '')],
+                        '•': [('•', '[Punct]', '', '')],
+                        '=': [('=', '[Punct]', '', '')],
+                        '-': [('-', '[Punct]', '', '')],
+                        '—': [('—', '[Punct]', '', '')],
+                        '+': [('+', '[Punct]', '', '')],
+                        '&': [('&', '[Punct]', '', '')],
+                        '→': [('→', '[Punct]', '', '')],
+                        '…': [('…', '[Punct]', '', '')],
+                        '`': [('`', '[Punct]', '', '')],
+                        '?': [('?', '[Punct]', '', '')],
+                        '?!': [('?!', '[Punct]', '', '')],
+                        '\'': [('\'', '[Punct]', '', '')],
+                        '.........': [('.........', '[Punct]', '', '')],
+                        '.......': [('.......', '[Punct]', '', '')],
+                        '......': [('......', '[Punct]', '', '')],
+                        '.....': [('.....', '[Punct]', '', '')],
+                        '....': [('....', '[Punct]', '', '')],
+                        '...': [('...', '[Punct]', '', '')],
+                        '..': [('..', '[Punct]', '', '')]
                         }
 
     def _create_exceptions(self):
@@ -63,9 +63,9 @@ class EmMorphPy:
         that is a dictionary, each key is the wordform,
         corresponding values are stored in a set of tuples.
 
-        e.g: exceptions = { 'hűha': {('hűha', '[ISZ]', 'DETAILED_ANALYSIS')} }
+        e.g: exceptions = { 'hűha': {('hűha', '[ISZ]', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')} }
         """
-        self.exceptions = {'+': {('', '[/N][Nom]', '+[/N]=++[Nom]')}
+        self.exceptions = {'+': {('', '[/N][Nom]', '+[/N]=++[Nom]', '+:+ :[/N] :[Nom]')}
                            }
 
     @staticmethod
@@ -513,13 +513,14 @@ class EmMorphPy:
                 break
             ret = out.decode('UTF-8').strip().split('\t')
             if len(ret) == 3 and not ret[1].endswith('+?'):
-                danal = parse_stem(ret[1])
+                hfst_out = ret[1]
+                danal = parse_stem(hfst_out)
                 stem = stemmer_process(danal, tag_convert, tag_replace, tag_config_is_stem, tag_config_compound_member,
                                        tag_convert_is_derivative, tag_convert_config, tag_replace_config,
                                        tag_replace_config_is_prefix, tag_replace_config_must_have_compound,
                                        copy2surface)
                 if len(stem) > 0:  # Suppress incorrect words
-                    output.append((*stem, danal))  # lemma, tag, danal
+                    output.append((*stem, danal, hfst_out))  # lemma, tag, danal
 
         # Add extra anals
         output.extend(self.lexicon.get(inp, []))
@@ -534,16 +535,17 @@ class EmMorphPy:
     # Do not allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
     def stem(self, inp, out_mode=lambda x: sorted(set(x))):
         return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'))
-                        for lemma, tag, _ in self._spec_query(inp))
+                        for lemma, tag, _, _ in self._spec_query(inp))
 
     def analyze(self, inp, out_mode=lambda x: sorted(set(x))):
         return out_mode('+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_')
-                        for _, _, danal in self._spec_query(inp))
+                        for _, _, danal, _ in self._spec_query(inp))
 
     def dstem(self, inp, out_mode=lambda x: sorted(set(x))):
         return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'),
-                         '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_'))
-                        for lemma, tag, danal in self._spec_query(inp))
+                         '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_'),
+                         hfst_out)
+                        for lemma, tag, danal, hfst_out in self._spec_query(inp))
 
     def test(self):
         hfst_out_test = 'a:a l:l :o m:m :[/N] a:a :[Poss.3Sg] :[Nom]'
