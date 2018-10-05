@@ -6,9 +6,14 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
   - (Included in this repository) The compiled FST (hu.hfstol): go to https://github.com/dlt-rilmta/emMorph for compilation details
   - (Included in this repository) The lemmatizer config file: available at https://github.com/dlt-rilmta/hunlp-GATE/blob/master/Lang_Hungarian/resources/hfst/hfst-wrapper.props
   - _hfst-lookup 0.6 (hfst 3.13.0)_ or higher: On Ubuntu 18.04 LTS or higher just `sudo apt install hfst`
-  - Python 3 (tested with 3.6)
+  - Python 3 (>=3.5, tested with 3.6)
   - Pip to install the additional requirements in requirements.txt
   - (Optional) a cloud service like [Heroku](https://heroku.com) for hosting the API
+
+## Features
+ - Stemming and returning the detailed morphological analyses with the proper transducer and config file
+ - Handling extra and exceptional lexicons statically and dynamically (see [emmorphpy/emmorphpy.py](https://github.com/ppke-nlpg/emmorphpy/blob/master/emmorphpy/emmorphpy.py) for details)
+ - Can be used through REST API, or from Python as a library (see usage examples below)
 
 ## Install on local machine
 
@@ -45,17 +50,17 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	>>> json.loads(requests.get('https://emmorph.herokuapp.com/analyze/' + word).text)[word]
 	['működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']
 	>>> json.loads(requests.get('https://emmorph.herokuapp.com/dstem/' + word).text)[word]
-	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']]
+	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]']]
 	>>> words = {'words': [word, word + '2', 'etc.']}
-	>>> words = json.loads(requests.post('https://emmorph.herokuapp.com/batch_stem', json=words).text)
-	>>> print(words[word])
+	>>> words_out = json.loads(requests.post('https://emmorph.herokuapp.com/batch_stem', json=words).text)
+	>>> print(words_out[word])
 	[['működik', '[/V][Prs.Def.3Pl]'], ['működik', '[/V][Prs.NDef.3Sg]']]
-	>>> words = json.loads(requests.post('https://emmorph.herokuapp.com/batch_analyze', json=words).text)
-	>>> print(words[word])
+	>>> words_out = json.loads(requests.post('https://emmorph.herokuapp.com/batch_analyze', json=words).text)
+	>>> print(words_out[word])
 	['működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']
-	>>> words = json.loads(requests.post('https://emmorph.herokuapp.com/batch_dstem', json=words).text)
-	>>> print(words[word])
-	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']]
+	>>> words_out = json.loads(requests.post('https://emmorph.herokuapp.com/batch_dstem', json=words).text)
+	>>> print(words_out[word])
+	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]']]
 	```
  
   - From Python:
@@ -63,12 +68,16 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	```python
 	>>> import emmorphpy.emmorphpy as emmorph
 	>>> m = emmorph.EmMorphPy()
-	>>> m.stem('működik')  # Returns list of lemmatisations (stem and tag pairs)
-	[['működik', '[/V][Prs.Def.3Pl]'], ['működik', '[/V][Prs.NDef.3Sg]']]
+	>>> m.stem('működik')     # Returns list of lemmatisations (stem and tag pairs)
+	[('működik', '[/V][Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]')]
 	>>> m.analyze('működik')  # Returns list of detailed analyzes (word by morphemes)
 	['működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']
-	>>> m.dstem('működik')  # Returns list of lemmatisations with the corresponding detailed analyzes (stem, tag and detailed analyzes triples)
-	[['működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik'], ['működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']]
+	>>> m.dstem('működik')    # Returns list of lemmatisations with the corresponding detailed analyzes (stem, tag and detailed analyzes triples)
+	[('működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]')]
+	>>> # Add new analyses to the lexicon (Not a paradigm, but a single analysis!) Format: [('STEM', 'TAG', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')]
+	>>> m.lexicon['Obamával'] = [('Obama', '[/N][Nom]', '', ''), ('Obam', '[/N][Nom]', '', ''), ('Obamá', '[/N][Nom]', '', '')]
+	>>> # Add new exceptions to the lexicon (Exact matches will be filtered out!) Format: ('STEM', 'TAG', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')
+	>>> m.exceptions['almával'] = {('alom', '[/N][Poss.3Sg][Ins]', 'alom[/N]=alm+a[Poss.3Sg]=á+val[Ins]=val', 'almával	a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]')}  
 	```
 
 
