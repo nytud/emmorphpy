@@ -61,11 +61,11 @@ class EmMorphPy:
         """
         exceptions must be defined:
         that is a dictionary, each key is the wordform,
-        corresponding values are stored in a set of tuples.
+        corresponding HFST-outputs are stored in a set of tuples.
 
-        e.g: exceptions = { 'hűha': {('hűha', '[ISZ]', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')} }
+        e.g: exceptions = { 'hűha': {'HFST-OUTPUT'} }
         """
-        self.exceptions = {'+': {('', '[/N][Nom]', '+[/N]=++[Nom]', '+:+ :[/N] :[Nom]')}
+        self.exceptions = {'+': {'+:+ :[/N] :[Nom]'}
                            }
 
     @staticmethod
@@ -514,21 +514,19 @@ class EmMorphPy:
             ret = out.decode('UTF-8').strip().split('\t')
             if len(ret) == 3 and not ret[1].endswith('+?'):
                 hfst_out = ret[1]
-                danal = parse_stem(hfst_out)
-                stem = stemmer_process(danal, tag_convert, tag_replace, tag_config_is_stem, tag_config_compound_member,
-                                       tag_convert_is_derivative, tag_convert_config, tag_replace_config,
-                                       tag_replace_config_is_prefix, tag_replace_config_must_have_compound,
-                                       copy2surface)
-                if len(stem) > 0:  # Suppress incorrect words
-                    output.append((*stem, danal, hfst_out))  # lemma, tag, danal
 
-        # Add extra anals
+                # Omit exceptional anals before any processing (parse_stem, stemmer_process)
+                if hfst_out not in self.exceptions.get(inp, {}):
+                    danal = parse_stem(hfst_out)
+                    stem = stemmer_process(danal, tag_convert, tag_replace, tag_config_is_stem,
+                                           tag_config_compound_member, tag_convert_is_derivative, tag_convert_config,
+                                           tag_replace_config, tag_replace_config_is_prefix,
+                                           tag_replace_config_must_have_compound, copy2surface)
+                    if len(stem) > 0:  # Suppress incorrect words
+                        output.append((*stem, danal, hfst_out))  # lemma, tag, danal
+
+        # Add extra anals without any processing (parse_stem, stemmer_process)
         output.extend(self.lexicon.get(inp, []))
-
-        # Remove exceptional anals
-        to_delete = self.exceptions.get(inp)
-        if to_delete is not None:
-            output = [anal for anal in output if anal not in to_delete]
 
         return output
 

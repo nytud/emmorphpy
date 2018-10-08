@@ -76,8 +76,8 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	[('működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]')]
 	>>> # Add new analyses to the lexicon (Not a paradigm, but a single analysis!) Format: [('STEM', 'TAG', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')]
 	>>> m.lexicon['Obamával'] = [('Obama', '[/N][Nom]', '', ''), ('Obam', '[/N][Nom]', '', ''), ('Obamá', '[/N][Nom]', '', '')]
-	>>> # Add new exceptions to the lexicon (Exact matches will be filtered out!) Format: ('STEM', 'TAG', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')
-	>>> m.exceptions['almával'] = {('alom', '[/N][Poss.3Sg][Ins]', 'alom[/N]=alm+a[Poss.3Sg]=á+val[Ins]=val', 'almával	a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]')}  
+	>>> # Add new exceptions to the lexicon (Exact matches will be filtered out ASAP!) Format: ('HFST-OUTPUT')
+	>>> m.exceptions['almával'] = {'a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]'}  
 	```
 
 
