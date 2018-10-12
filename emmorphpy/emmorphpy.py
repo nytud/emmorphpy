@@ -470,8 +470,28 @@ class EmMorphPy:
         self.proc_stdout_readline = self.p.stdout.readline
         self.proc_stderr_read = self.p.stderr.read
 
+        self.target_fields = ['anas']  # For e-magyar TSV
+
         # Test HFST at init
         self._spec_query('test')
+
+    @staticmethod
+    def _make_fancy_output(inp):
+        anals = []
+        for lemma, tag, danal, _ in inp:
+            # TODO: readable_ana format ???
+            anals.append('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.format(lemma, tag, danal, danal))
+        return ';'.join(anals)
+
+    def process_sentence(self, sen, field_names):
+        for tok in sen:
+            output = self._make_fancy_output(self.dstem(tok[field_names[0]]))
+            tok.append(output)
+        return sen
+
+    @staticmethod
+    def prepare_fields(field_names):
+        return [field_names['string']]
 
     def close(self):
         self.p.wait()
