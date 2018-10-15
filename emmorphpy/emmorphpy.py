@@ -482,41 +482,24 @@ class EmMorphPy:
     @staticmethod
     def _create_readable_ana(danal):
         """
-        in:  ki[/Prev]=ki+fizet[/V]=fizet+és[_Ger/N]=és+e[Poss.3Sg]=é+t[Acc]=t
-        out: ki[/Prev] + fizet[/V] + és[_Ger/N] + e[Poss.3Sg]=é + t[Acc]
-
-        split /+/
-        for each {
-        if ( substr az első '['-ig == substr az utsó '='-től ) {
-        nem kell az =-s, azaz: morph = substr az utsó '='-ig
-        } kül {
-        marad
-        }
-
-        join ' + '
+        input : ki[/Prev]=ki+fizet[/V]=fizet+és[_Ger/N]=és+e[Poss.3Sg]=é+t[Acc]=t
+        immed.: ki[/Prev]   +fizet[/V]      +és[_Ger/N]   +e[Poss.3Sg]=é+t[Acc]
+        output: ki[/Prev] + fizet[/V] + és[_Ger/N] + e[Poss.3Sg]=é + t[Acc]
         """
         out = []
-        for morph in danal.split('+'):
-            m = danal_re.search(morph)
-            deep, tag, surf = m.groups()
+        for deep, tag, surf in danal:
+            eq = '='
             if deep == surf:
-                out.append(deep+tag)
-            else:
-                out.append(morph)
+                eq = ''
+                surf = ''
+            out.append('{0}[{1}]{2}{3}'.format(deep, tag, eq, surf).replace(' ', '_'))
         return ' + '.join(out)
-
-    @staticmethod
-    def _make_fancy_output(inp):
-        anals = []
-        for lemma, tag, danal, _ in inp:
-            # TODO: Simpler ana format!!!
-            anals.append('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.
-                         format(lemma, tag, danal, EmMorphPy._create_readable_ana(danal)))
-        return ';'.join(anals)
 
     def process_sentence(self, sen, field_names):
         for tok in sen:
-            output = self._make_fancy_output(self.dstem(tok[field_names[0]]))
+            # TODO: Simpler ana format!!!
+            output = ';'.join('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.format(lemma, tag, danal, readable)
+                              for lemma, tag, danal, readable in self.tsv_ana(tok[field_names[0]]))
             tok.append(output)
         return sen
 
@@ -595,6 +578,12 @@ class EmMorphPy:
                          '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_'),
                          hfst_out)
                         for lemma, tag, danal, hfst_out in self._spec_query(inp))
+
+    def tsv_ana(self, inp, out_mode=lambda x: sorted(set(x))):
+        return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'),
+                         '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_'),
+                         self._create_readable_ana(danal))
+                        for lemma, tag, danal, _ in self._spec_query(inp))
 
     def test(self):
         hfst_out_test = 'a:a l:l :o m:m :[/N] a:a :[Poss.3Sg] :[Nom]'
