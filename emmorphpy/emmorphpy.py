@@ -9,6 +9,10 @@ import functools
 import subprocess
 from collections import defaultdict
 
+import re
+
+danal_re = re.compile('([^[]*)(\[.*)=(.*)')
+
 morph_flags = {'STEM': 0, 'PREFIX': 1, 'COMP_MEMBER': 2, 'COMP_MUST_HAVE': 3, 'COMP_BEFORE_HYPHEN': 4,
                'STEM_IF_COMP': 5, 'INT_PUNCT': 6}
 
@@ -476,11 +480,38 @@ class EmMorphPy:
         self._spec_query('test')
 
     @staticmethod
+    def _create_readable_ana(danal):
+        """
+        in:  ki[/Prev]=ki+fizet[/V]=fizet+és[_Ger/N]=és+e[Poss.3Sg]=é+t[Acc]=t
+        out: ki[/Prev] + fizet[/V] + és[_Ger/N] + e[Poss.3Sg]=é + t[Acc]
+
+        split /+/
+        for each {
+        if ( substr az első '['-ig == substr az utsó '='-től ) {
+        nem kell az =-s, azaz: morph = substr az utsó '='-ig
+        } kül {
+        marad
+        }
+
+        join ' + '
+        """
+        out = []
+        for morph in danal.split('+'):
+            m = danal_re.search(morph)
+            deep, tag, surf = m.groups()
+            if deep == surf:
+                out.append(deep+tag)
+            else:
+                out.append(morph)
+        return ' + '.join(out)
+
+    @staticmethod
     def _make_fancy_output(inp):
         anals = []
         for lemma, tag, danal, _ in inp:
-            # TODO: readable_ana format ???
-            anals.append('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.format(lemma, tag, danal, danal))
+            # TODO: Simpler ana format!!!
+            anals.append('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.
+                         format(lemma, tag, danal, EmMorphPy._create_readable_ana(danal)))
         return ';'.join(anals)
 
     def process_sentence(self, sen, field_names):
