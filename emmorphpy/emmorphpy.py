@@ -85,9 +85,10 @@ class EmMorphPy:
             for t in props.get('stemmer.{0}'.format(f), '').split(item_sep):
                 tag_config[t].add(v)
 
-        tag_convert = dict(t.split(value_sep, maxsplit=1)
+        # Here we must have rsplit because "_PerfPtcp_Subj=tA/Adj=/Adj" -> "_PerfPtcp_Subj=tA/Adj": "/Adj"
+        tag_convert = dict(t.rsplit(value_sep, maxsplit=1)
                            for t in props.get('stemmer.convert', '').split(item_sep)
-                           if len(t.split(value_sep, maxsplit=1)) == 2)
+                           if len(t.rsplit(value_sep, maxsplit=1)) == 2)
 
         tag_replace = dict(t.split(value_sep, maxsplit=1)
                            for t in props.get('stemmer.replace', '').split(item_sep)
