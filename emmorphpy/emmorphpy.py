@@ -501,6 +501,8 @@ class EmMorphPy:
             # TODO: Simpler ana format!!!
             output = ';'.join('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.format(lemma, tag, danal, readable)
                               for lemma, tag, danal, readable in self.tsv_ana(tok[field_names[0]]))
+            if len(output) == 0:  # No anal
+                output = '{}'
             tok.append(output)
         return sen
 
@@ -605,3 +607,4 @@ if __name__ == '__main__':
     print('körtével', emmorph.stem('körtével'))
     print('körtével', emmorph.analyze('körtével'))
     print('körtével', emmorph.dstem('körtével'))
+    print('almával', emmorph.tsv_ana('almával'))
