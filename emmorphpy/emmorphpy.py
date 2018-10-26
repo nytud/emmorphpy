@@ -5,13 +5,11 @@ import jprops
 
 import os
 import sys
+
 import functools
 import subprocess
 from collections import defaultdict
-
-import re
-
-danal_re = re.compile('([^[]*)(\[.*)=(.*)')
+from json import dumps as json_dumps
 
 morph_flags = {'STEM': 0, 'PREFIX': 1, 'COMP_MEMBER': 2, 'COMP_MUST_HAVE': 3, 'COMP_BEFORE_HYPHEN': 4,
                'STEM_IF_COMP': 5, 'INT_PUNCT': 6}
@@ -498,12 +496,10 @@ class EmMorphPy:
 
     def process_sentence(self, sen, field_names):
         for tok in sen:
-            # TODO: Simpler ana format!!!
-            output = ';'.join('{{lemma={0}, feats={1}, ana={2}, readable_ana={3}}}'.format(lemma, tag, danal, readable)
-                              for lemma, tag, danal, readable in self.tsv_ana(tok[field_names[0]]))
-            if len(output) == 0:  # No anal
-                output = '{}'
-            tok.append(output)
+            output = [{'lemma': lemma, 'feats': tag, 'ana': danal, 'readable_ana': readable}
+                      for lemma, tag, danal, readable in self.tsv_ana(tok[field_names[0]])]
+            output_json = json_dumps(output, ensure_ascii=False, sort_keys=True)
+            tok.append(output_json)
         return sen
 
     @staticmethod
@@ -608,3 +604,4 @@ if __name__ == '__main__':
     print('körtével', emmorph.analyze('körtével'))
     print('körtével', emmorph.dstem('körtével'))
     print('almával', emmorph.tsv_ana('almával'))
+    print(emmorph.process_sentence([['Az'], ['árvíztűrőtükörfúrógép'], ['"hasznos\''], ['.']], [0]))
