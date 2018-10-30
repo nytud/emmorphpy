@@ -444,7 +444,7 @@ class EmMorphPy:
 
     def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
                  fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
-                 lexicon=None, exceptions=None):
+                 lexicon=None, exceptions=None, source_fields=None, target_fields=None):
         self.loaded_conf = list(self._load_config(props))
         params = self.loaded_conf.pop()  # HFST params
 
@@ -473,7 +473,15 @@ class EmMorphPy:
         self.proc_stdout_readline = self.p.stdout.readline
         self.proc_stderr_read = self.p.stderr.read
 
-        self.target_fields = ['anas']  # For e-magyar TSV
+        # Field names for e-magyar TSV
+        if source_fields is None:
+            source_fields = {}
+
+        if target_fields is None:
+            target_fields = []
+
+        self.source_fields = source_fields
+        self.target_fields = target_fields
 
         # Test HFST at init
         self._spec_query('test')
