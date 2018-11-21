@@ -8,7 +8,7 @@ import sys
 
 import functools
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from json import dumps as json_dumps
 
 morph_flags = {'STEM': 0, 'PREFIX': 1, 'COMP_MEMBER': 2, 'COMP_MUST_HAVE': 3, 'COMP_BEFORE_HYPHEN': 4,
@@ -502,17 +502,26 @@ class EmMorphPy:
             out.append('{0}[{1}]{2}{3}'.format(deep, tag, eq, surf).replace(' ', '_'))
         return ' + '.join(out)
 
+    @staticmethod
+    def _format_danal(danal):
+        return '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal))
+
+    @staticmethod  # TODO: Maybe its not a good idea to hand-wire here the name and order of the features
+    def zip_w_keys(values, keys=('lemma', 'tag', 'morphana', 'readable', 'twolevel')):
+        # TODO: From Python 3.7 no need for ordered dict to keep the insertion order
+        # TODO: Its enough to write: {'lemma': lemma, 'tag': tag, 'morphana': danal, 'readable': readable}
+        return OrderedDict(zip(keys, values))
+
     def process_sentence(self, sen, field_names):
         for tok in sen:
-            output = [{'lemma': lemma, 'feats': tag, 'ana': danal, 'readable_ana': readable}
-                      for lemma, tag, danal, readable in self.tsv_ana(tok[field_names[0]])]
-            output_json = json_dumps(output, ensure_ascii=False, sort_keys=True)
+            output = self.dstem(tok[field_names[0]], out_mode=lambda x: [self.zip_w_keys(analysis) for analysis in x])
+            output_json = json_dumps(output, ensure_ascii=False)
             tok.append(output_json)
         return sen
 
     @staticmethod
     def prepare_fields(field_names):
-        return [field_names['string']]
+        return [field_names['string']]  # TODO: Maybe its not a good idea to hand-wire here the name of the features
 
     def close(self):
         self.p.wait()
@@ -571,26 +580,16 @@ class EmMorphPy:
 
         return output
 
-    # Do not allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
+    # Do allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
     def stem(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'))
-                        for lemma, tag, _, _ in self._spec_query(inp))
+        return out_mode((lemma, tag) for lemma, tag, _, _ in self._spec_query(inp))
 
     def analyze(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode('+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_')
-                        for _, _, danal, _ in self._spec_query(inp))
+        return out_mode(self._format_danal(danal) for _, _, danal, _ in self._spec_query(inp))
 
     def dstem(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'),
-                         '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_'),
-                         hfst_out)
+        return out_mode((lemma, tag, self._format_danal(danal), self._create_readable_ana(danal), hfst_out)
                         for lemma, tag, danal, hfst_out in self._spec_query(inp))
-
-    def tsv_ana(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma.replace(' ', '_'), tag.replace(' ', '_'),
-                         '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal)).replace(' ', '_'),
-                         self._create_readable_ana(danal))
-                        for lemma, tag, danal, _ in self._spec_query(inp))
 
     def test(self):
         hfst_out_test = 'a:a l:l :o m:m :[/N] a:a :[Poss.3Sg] :[Nom]'
@@ -611,5 +610,4 @@ if __name__ == '__main__':
     print('körtével', emmorph.stem('körtével'))
     print('körtével', emmorph.analyze('körtével'))
     print('körtével', emmorph.dstem('körtével'))
-    print('almával', emmorph.tsv_ana('almával'))
     print(emmorph.process_sentence([['Az'], ['árvíztűrőtükörfúrógép'], ['"hasznos\''], ['.']], [0]))
