@@ -39,7 +39,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
      - Lemmatization: https://emmorph.herokuapp.com/stem/működik
      - Detailed analysis: https://emmorph.herokuapp.com/analyze/működik
      - Lemmatisation with the corresponding detailed analysis: https://emmorph.herokuapp.com/dstem/működik
-     - The library also support the `bach_` prefix (eg. batch_analyze) to handle multiple words at once. (See examples for details.)
+     - The library also support HTTP POST requests to handle multiple words at once. (See examples for details.)
 
 	```python
 	>>> import requests
@@ -52,13 +52,13 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	>>> json.loads(requests.get('https://emmorph.herokuapp.com/dstem/' + word).text)[word]
     [{'lemma': 'működik', 'tag': '[/V][Prs.Def.3Pl]', 'morphana': 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'readable': 'működik[/V]=működ + ik[Prs.Def.3Pl]', 'twolevel': 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'}, {'lemma': 'működik', 'tag': '[/V][Prs.NDef.3Sg]', 'morphana': 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'readable': 'működik[/V]=működ + ik[Prs.NDef.3Sg]', 'twolevel': 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]'}]
 	>>> words = '\n'.join(('string', word, 'word2', ''))  # One word per line (first line is header, trailing newline is needed!)
-	>>> words_out = json.loads(requests.post('https://emmorph.herokuapp.com/batch_stem', json=words).text).split('\n')
+	>>> words_out = requests.post('https://emmorph.herokuapp.com/stem', files={'file': words}).text.split('\n')
 	>>> print(words_out[1].split('\t'))
 	['működik', '[{"lemma": "működik", "tag": "[/V][Prs.Def.3Pl]"}, {"lemma": "működik", "tag": "[/V][Prs.NDef.3Sg]"}]']
-	>>> words_out = json.loads(requests.post('https://emmorph.herokuapp.com/batch_analyze', json=words).text).split('\n')
+	>>> words_out = requests.post('https://emmorph.herokuapp.com/analyze', files={'file': words}).text.split('\n')
 	>>> print(words_out[1].split('\t'))
 	['működik', '[{"morphana": "működik[/V]=működ+ik[Prs.Def.3Pl]=ik"}, {"morphana": "működik[/V]=működ+ik[Prs.NDef.3Sg]=ik"}]']
-    >>> words_out = json.loads(requests.post('https://emmorph.herokuapp.com/batch_dstem', json=words).text).split('\n')
+    >>> words_out = requests.post('https://emmorph.herokuapp.com/dstem', files={'file': words}).text.split('\n')
 	>>> print(words_out[1].split('\t'))
 	['működik', '[{"lemma": "működik", "tag": "[/V][Prs.Def.3Pl]", "morphana": "működik[/V]=működ+ik[Prs.Def.3Pl]=ik", "readable": "működik[/V]=működ + ik[Prs.Def.3Pl]", "twolevel": "m:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]"}, {"lemma": "működik", "tag": "[/V][Prs.NDef.3Sg]", "morphana": "működik[/V]=működ+ik[Prs.NDef.3Sg]=ik", "readable": "működik[/V]=működ + ik[Prs.NDef.3Sg]", "twolevel": "m:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]"}]']
 	```
@@ -73,7 +73,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	>>> m.analyze('működik')  # Returns list of detailed analyzes (word by morphemes)
 	['működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik']
 	>>> m.dstem('működik')    # Returns list of lemmatisations with the corresponding detailed analyzes (stem, tag and detailed analyzes triples)
-	[('működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]')]
+	[('működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ + ik[Prs.Def.3Pl]', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'működik[/V]=működ + ik[Prs.NDef.3Sg]', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]')]
 	>>> # Add new analyses to the lexicon (Not a paradigm, but a single analysis!) Format: [('STEM', 'TAG', 'DETAILED_ANALYSIS', 'HFST-OUTPUT')]
 	>>> m.lexicon['Obamával'] = [('Obama', '[/N][Nom]', '', ''), ('Obam', '[/N][Nom]', '', ''), ('Obamá', '[/N][Nom]', '', '')]
 	>>> # Add new exceptions to the lexicon (Exact matches will be filtered out ASAP!) Format: ('HFST-OUTPUT')

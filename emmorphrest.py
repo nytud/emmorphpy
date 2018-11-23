@@ -1,142 +1,106 @@
 #!/usr/bin/python3
 # -*- coding: utf-8, vim: expandtab:ts=4 -*-
 
+import sys
 import codecs
-
-from flask import Flask, request, abort, Response, stream_with_context
-from flask_restful import Resource, Api
-
-# Import emMorphPy wrapper
-import emmorphpy
 
 import atexit
 
 from json import dumps as json_dumps
-from flask import make_response
+
+from flask import Flask, request, Response, stream_with_context, make_response
+from flask_restful import Api, Resource
+from werkzeug.exceptions import abort
 
 
-def jsonify(status=200, indent=2, sort_keys=True, **kwargs):
+# BEGIN Add personality...
+
+# Import emMorphPy wrapper
+import emmorphpy
+
+# Default args
+command = '/<path:path>'
+args = ()
+kwargs = {}
+tagger = emmorphpy.EmMorphPy
+
+# END Add personality...
+
+
+def jsonify(status=200, indent=2, sort_keys=True, **jsonify_kwargs):
     """
     http://stackoverflow.com/a/23320628/7145849
     """
-    response = make_response(json_dumps(dict(**kwargs), indent=indent, sort_keys=sort_keys, ensure_ascii=False))
+    response = make_response(json_dumps(dict(**jsonify_kwargs), indent=indent, sort_keys=sort_keys, ensure_ascii=False))
     response.headers['Content-Type'] = 'application/json; charset=utf-8'
     response.headers['mimetype'] = 'application/json'
     response.status_code = status
     return response
 
 
-# Initiate
-emmorphpy_morphology = emmorphpy.EmMorphPy()
-atexit.register(emmorphpy_morphology.close)
-
-app = Flask(__name__)
-api = Api(app)
+prog = tagger(*args, **kwargs)
 
 
-# TODO: Reimplement this in dynamically loadable morphology-style like in e-magyar-tsv
-class EmMorphPyREST(Resource):
-    @staticmethod
-    @app.route('/')
-    def usage():
-            return 'Usage: /stem/word, /analyze/word, /dstem/word, /batch_stem, /batch_analyze or /batch_dstem'
+def add_params(restapi, endpoint, internal_app):
+    if internal_app is None:
+        print('No internal_app is given!', file=sys.stderr)
+        exit(1)
 
-    @staticmethod
-    @app.route('/stem/')
-    def stem_usage():
-            return 'Usage: /stem/word'
+    app_kwargs = {'endpoint': endpoint, 'internal_app': internal_app}
+    # To bypass using self and @route together
+    restapi.add_resource(RESTapp, *{'/', endpoint}, resource_class_kwargs=app_kwargs)
 
-    @staticmethod
-    @app.route('/stem/<token>')
-    def stem(token):
-        stem = EmMorphPyREST.do_stem(token)
-        return jsonify(**{token: stem})
 
-    @staticmethod
-    def do_stem(token):
-        return emmorphpy_morphology.stem(token, out_mode=lambda x: [emmorphpy_morphology.zip_w_keys(analysis,
-                                                                                                    ('lemma', 'tag'))
-                                                                    for analysis in x])
+def create_rest_app(name, endpoint, internal_app):
+    flask_app = Flask(name)
+    api = Api(flask_app)
+    add_params(api, endpoint, internal_app)
 
-    @staticmethod
-    @app.route('/dstem/')
-    def dstem_usage():
-            return 'Usage: /dstem/word'
+    return flask_app
 
-    @staticmethod
-    @app.route('/dstem/<token>')
-    def dstem(token):
-        stem = EmMorphPyREST.do_dstem(token)
-        return jsonify(**{token: stem})
 
-    @staticmethod
-    def do_dstem(token):
-        return emmorphpy_morphology.dstem(token,  out_mode=lambda x: [emmorphpy_morphology.zip_w_keys(analysis)
-                                                                      for analysis in x])
+class RESTapp(Resource):
+    usage = 'Usage: /stem/word, /analyze/word, /dstem/word with HTTP GET or ' \
+            '/batch_stem, /batch_analyze, /batch_dstem with ' \
+            'HTTP POST a file mamed as \'file\' in the apropriate TSV format'
 
-    @staticmethod
-    @app.route('/analyze/')
-    def analyze_usage():
-            return 'Usage: /analyze/word'
+    def get(self, path=''):
+        token = ''
+        if path.startswith('stem/'):
+            fun = self.do_stem
+            token = path[5:]
+        elif path.startswith('analyze/'):
+            fun = self.do_analyze
+            token = path[8:]
+        elif path.startswith('dstem/'):
+            token = path[6:]
+            fun = self.do_dstem
+        else:
+            fun = self.do_stem  # Dummy to silence the IDE
 
-    @staticmethod
-    @app.route('/analyze/<token>')
-    def analyze(token):
-        stem = EmMorphPyREST.do_analyze(token)
-        return jsonify(**{token: stem})
+        if len(token) == 0:
+            abort(400, RESTapp.usage)
+            fun = self.do_stem  # Dummy to silence the IDE
 
-    @staticmethod
-    def do_analyze(token):
-        return emmorphpy_morphology.analyze(token, out_mode=lambda x: [emmorphpy_morphology.zip_w_keys((analysis,),
-                                                                                                       ('morphana',))
-                                                                       for analysis in x])
+        return jsonify(**{token: fun(token)})
 
-    @staticmethod
-    @app.route('/batch_stem')
-    def batch_stem_usage():
-            return 'Usage: HTTP POST /batch_stem a JSON dict with "words" as key and the list of words as value'
+    def post(self, path=''):
+        if path == 'stem':
+            fun = self.do_stem
+        elif path == 'analyze':
+            fun = self.do_analyze
+        elif path == 'dstem':
+            fun = self.do_dstem
+        else:
+            abort(400, RESTapp.usage)
+            fun = self.do_stem
 
-    @staticmethod
-    @app.route('/batch_stem', methods=['POST'])
-    def batch_stem():
         if 'file' not in request.files:
-            abort(400, 'ERROR: input file not found in request!')
+            abort(400)
         inp_file = codecs.getreader('UTF-8')(request.files['file'])
 
         return Response(stream_with_context((line.encode('UTF-8')
-                                             for line in EmMorphPyREST.process(inp_file, EmMorphPyREST.do_stem))),
-                        direct_passthrough=True)
-
-    @staticmethod
-    @app.route('/batch_dstem')
-    def batch_dstem_usage():
-            return 'Usage: HTTP POST /batch_dstem a JSON dict with "words" as key and the list of words as value'
-
-    @staticmethod
-    @app.route('/batch_dstem', methods=['POST'])
-    def batch_dstem():
-        if 'file' not in request.files:
-            abort(400, 'ERROR: input file not found in request!')
-        inp_file = codecs.getreader('UTF-8')(request.files['file'])
-
-        return Response(stream_with_context((line.encode('UTF-8')
-                                             for line in EmMorphPyREST.process(inp_file, EmMorphPyREST.do_dstem))),
-                        direct_passthrough=True)
-
-    @staticmethod
-    @app.route('/batch_analyze')
-    def batch_analyze_usage():
-            return 'Usage: HTTP POST /batch_analyze a JSON dict with "words" as key and the list of words as value'
-
-    @staticmethod
-    @app.route('/batch_analyze', methods=['POST'])
-    def batch_analyze():
-        if 'file' not in request.files:
-            abort(400, 'ERROR: input file not found in request!')
-        inp_file = codecs.getreader('UTF-8')(request.files['file'])
-
-        return Response(stream_with_context((line.encode('UTF-8')
-                                             for line in EmMorphPyREST.process(inp_file, EmMorphPyREST.do_analyze))),
+                                             for line in RESTapp.process(inp_file, fun))),
                         direct_passthrough=True)
 
     @staticmethod
@@ -157,6 +121,33 @@ class EmMorphPyREST(Resource):
                 yield line
             yield '\n'
 
+    def do_stem(self, token):
+        return self._internal_app.stem(token, out_mode=lambda x: [self._internal_app.zip_w_keys(analysis,
+                                                                                                ('lemma', 'tag'))
+                                                                  for analysis in x])
+
+    def do_analyze(self, token):
+        return self._internal_app.analyze(token, out_mode=lambda x: [self._internal_app.zip_w_keys((analysis,),
+                                                                                                   ('morphana',))
+                                                                     for analysis in x])
+
+    def do_dstem(self, token):
+        return self._internal_app.dstem(token,  out_mode=lambda x: [self._internal_app.zip_w_keys(analysis)
+                                                                    for analysis in x])
+
+    def __init__(self, endpoint, internal_app=None):
+        """
+        Init REST API class
+        :param endpoint: the command to answer (parse, tag, analyze, etc.)
+        :param internal_app: pre-inicialised application
+        """
+        self._command = endpoint.rsplit('/<path:path>', maxsplit=1)[0]
+        self._internal_app = internal_app
+        # atexit.register(self._internal_app.__del__)  # For clean exit...
+
+
+# Create app with the desired parameters...
+app = create_rest_app(__name__, endpoint=command, internal_app=prog)
 
 if __name__ == '__main__':
     app.run(debug=False)
