@@ -62,7 +62,8 @@ def create_rest_app(name, endpoint, internal_app):
 class RESTapp(Resource):
     usage = 'Usage: /stem/word, /analyze/word, /dstem/word with HTTP GET or ' \
             '/batch_stem, /batch_analyze, /batch_dstem with ' \
-            'HTTP POST a file mamed as \'file\' in the apropriate TSV format'
+            'HTTP POST a file mamed as \'file\' in the apropriate TSV format. ' \
+            'Further info: https://github.com/ppke-nlpg/emmorphpy'
 
     def get(self, path=''):
         token = ''
