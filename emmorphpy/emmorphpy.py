@@ -521,7 +521,7 @@ class EmMorphPy:
 
     @staticmethod
     def prepare_fields(field_names):
-        return [field_names['string']]  # TODO: Maybe its not a good idea to hand-wire here the name of the features
+        return [field_names['form']]  # TODO: Maybe its not a good idea to hand-wire here the name of the features
 
     def close(self):
         self.p.wait()
