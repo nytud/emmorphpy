@@ -16,6 +16,7 @@ morph_flags = {'STEM': 0, 'PREFIX': 1, 'COMP_MEMBER': 2, 'COMP_MUST_HAVE': 3, 'C
 
 
 class EmMorphPy:
+    pass_header = True
 
     def _create_extra_lexicon(self):
         """
