@@ -254,7 +254,7 @@ class EmMorphPy:
                         m = morphs[i]
                         convert |= m['is_stem']
                         if convert and m['is_derivative']:
-                            m['category'] = tag_convert_get(m['category'])  # TODO: A None itt nincs kezelve
+                            m['category'] = tag_convert_get(m['category'], m['category'])
                             fc = m['flags_conv']
                             m['flags'] = fc
                             m['is_stem'] |= STEM in fc

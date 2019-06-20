@@ -63900,3 +63900,4 @@ túl
 pl.
 ifj.
 ún.
+lehullott/
