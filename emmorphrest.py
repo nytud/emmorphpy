@@ -67,36 +67,26 @@ class RESTapp(Resource):
 
     def get(self, path=''):
         token = ''
-        if path.startswith('stem/'):
-            fun = self.do_stem
-            token = path[5:]
-        elif path.startswith('analyze/'):
-            fun = self.do_analyze
-            token = path[8:]
-        elif path.startswith('dstem/'):
-            token = path[6:]
-            fun = self.do_dstem
-        else:
-            fun = self.do_stem  # Dummy to silence the IDE
+        fun = None
+        for keyword, key_fun in self._keywords.items():
+            if path.startswith(keyword):
+                fun = key_fun
+                token = path[len(keyword):]  # Strip the keyword part
+                break
 
-        if len(token) == 0:
+        if len(token) == 0 or fun is None:
             abort(400, RESTapp.usage)
-            fun = self.do_stem  # Dummy to silence the IDE
 
         return jsonify(**{token: fun(token)})
 
     def post(self, path=''):
-        if path == 'stem':
-            fun = self.do_stem
-        elif path == 'analyze':
-            fun = self.do_analyze
-        elif path == 'dstem':
-            fun = self.do_dstem
-        else:
-            abort(400, RESTapp.usage)
-            fun = self.do_stem
+        fun = None
+        for keyword, key_fun in self._keywords.items():
+            if path == keyword[:-1]:  # Strip '/' from keyword
+                fun = key_fun
+                break
 
-        if 'file' not in request.files:
+        if 'file' not in request.files or fun is None:
             abort(400)
         inp_file = codecs.getreader('UTF-8')(request.files['file'])
 
@@ -142,6 +132,7 @@ class RESTapp(Resource):
         :param endpoint: the command to answer (parse, tag, analyze, etc.)
         :param internal_app: pre-inicialised application
         """
+        self._keywords = {'stem/': self.do_stem, 'analyze/': self.do_analyze, 'dstem/': self.do_dstem}
         self._command = endpoint.rsplit('/<path:path>', maxsplit=1)[0]
         self._internal_app = internal_app
         # atexit.register(self._internal_app.__del__)  # For clean exit...
