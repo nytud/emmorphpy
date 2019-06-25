@@ -1,1 +1,1 @@
-web: gunicorn emmorphrest:app --log-file=-
+web: gunicorn emmorphrest:flask_app --log-file=-

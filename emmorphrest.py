@@ -1,10 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8, vim: expandtab:ts=4 -*-
 
-import sys
 import codecs
 
-import atexit
+# import atexit
 
 from json import dumps as json_dumps
 
@@ -19,12 +18,13 @@ from werkzeug.exceptions import abort
 import emmorphpy
 
 # Default args
-command = '/<path:path>'
-args = ()
-kwargs = {}
+tagger_args = ()
+tagger_kwargs = {}
 tagger = emmorphpy.EmMorphPy
 
 # END Add personality...
+
+prog = tagger(*tagger_args, **tagger_kwargs)
 
 
 def jsonify(status=200, indent=2, sort_keys=True, **jsonify_kwargs):
@@ -38,33 +38,16 @@ def jsonify(status=200, indent=2, sort_keys=True, **jsonify_kwargs):
     return response
 
 
-prog = tagger(*args, **kwargs)
+def add_params(restapi, resource_class, internal_apps, presets, conll_comments):
+    if internal_apps is None:
+        raise ValueError('No internal_app is given!')
 
-
-def add_params(restapi, endpoint, internal_app):
-    if internal_app is None:
-        print('No internal_app is given!', file=sys.stderr)
-        exit(1)
-
-    app_kwargs = {'endpoint': endpoint, 'internal_app': internal_app}
-    # To bypass using self and @route together
-    restapi.add_resource(RESTapp, *{'/', endpoint}, resource_class_kwargs=app_kwargs)
-
-
-def create_rest_app(name, endpoint, internal_app):
-    flask_app = Flask(name)
-    api = Api(flask_app)
-    add_params(api, endpoint, internal_app)
-
-    return flask_app
+    kwargs = {'internal_apps': internal_apps, 'presets': presets, 'conll_comments': conll_comments}
+    # To bypass using self and @route together, default values are at the function declarations
+    restapi.add_resource(resource_class, '/', '/<path:path>', resource_class_kwargs=kwargs)
 
 
 class RESTapp(Resource):
-    usage = 'Usage: /stem/word, /analyze/word, /dstem/word with HTTP GET or ' \
-            '/batch_stem, /batch_analyze, /batch_dstem with ' \
-            'HTTP POST a file mamed as \'file\' in the apropriate TSV format. ' \
-            'Further info: https://github.com/ppke-nlpg/emmorphpy'
-
     def get(self, path=''):
         token = ''
         fun = None
@@ -75,11 +58,15 @@ class RESTapp(Resource):
                 break
 
         if len(token) == 0 or fun is None:
-            abort(400, RESTapp.usage)
+            abort(400, 'Usage: /stem/word, /analyze/word, /dstem/word with HTTP GET or '
+                       '/batch_stem, /batch_analyze, /batch_dstem with '
+                       'HTTP POST a file mamed as \'file\' in the apropriate TSV format. '
+                       'Further info: https://github.com/ppke-nlpg/emmorphpy')
 
         return jsonify(**{token: fun(token)})
 
-    def post(self, path=''):
+    def post(self, path):
+        conll_comments = request.form.get('conll_comments', self._conll_comments)
         fun = None
         for keyword, key_fun in self._keywords.items():
             if path == keyword[:-1]:  # Strip '/' from keyword
@@ -87,18 +74,19 @@ class RESTapp(Resource):
                 break
 
         if 'file' not in request.files or fun is None:
-            abort(400)
-        inp_file = codecs.getreader('UTF-8')(request.files['file'])
+            abort(400, 'ERROR: input file not found in request!')
 
-        return Response(stream_with_context((line.encode('UTF-8')
-                                             for line in RESTapp.process(inp_file, fun))),
+        inp_file = codecs.getreader('UTF-8')(request.files['file'])
+        last_prog = RESTapp.process(inp_file, fun)
+
+        return Response(stream_with_context((line.encode('UTF-8') for line in last_prog)),
                         direct_passthrough=True)
 
     @staticmethod
     def process(stream, fun):
         # Simplified version of the TSVHandler process function...
         fields = next(stream).strip().split()
-        if fields != ['string']:
+        if fields != ['form']:
             abort(400, 'ERROR: input header missing!')
         fields.extend(['anas'])  # Add target fields
         header = '{0}\n'.format('\t'.join(fields))
@@ -113,33 +101,43 @@ class RESTapp(Resource):
             yield '\n'
 
     def do_stem(self, token):
-        return self._internal_app.stem(token, out_mode=lambda x: [self._internal_app.zip_w_keys(analysis,
-                                                                                                ('lemma', 'tag'))
-                                                                  for analysis in x])
+        return self._internal_apps.stem(token, out_mode=lambda x: [self._internal_apps.zip_w_keys(analysis,
+                                                                                                  ('lemma', 'tag'))
+                                                                   for analysis in x])
 
     def do_analyze(self, token):
-        return self._internal_app.analyze(token, out_mode=lambda x: [self._internal_app.zip_w_keys((analysis,),
-                                                                                                   ('morphana',))
-                                                                     for analysis in x])
+        return self._internal_apps.analyze(token, out_mode=lambda x: [self._internal_apps.zip_w_keys((analysis,),
+                                                                                                     ('morphana',))
+                                                                      for analysis in x])
 
     def do_dstem(self, token):
-        return self._internal_app.dstem(token,  out_mode=lambda x: [self._internal_app.zip_w_keys(analysis)
+        return self._internal_apps.dstem(token, out_mode=lambda x: [self._internal_apps.zip_w_keys(analysis)
                                                                     for analysis in x])
 
-    def __init__(self, endpoint, internal_app=None):
+    def __init__(self, internal_apps=None, presets=(), conll_comments=False):
         """
         Init REST API class
-        :param endpoint: the command to answer (parse, tag, analyze, etc.)
-        :param internal_app: pre-inicialised application
+        :param internal_apps: pre-inicialised applications
+        :param presets: pre-defined chains eg. from tokenisation to dependency parsing'
+        :param conll_comments: CoNLL-U-style comments (lines beginning with '#') before sentences
         """
+        self._internal_apps = internal_apps
+        self._presets = presets
+        self._conll_comments = conll_comments
         self._keywords = {'stem/': self.do_stem, 'analyze/': self.do_analyze, 'dstem/': self.do_dstem}
-        self._command = endpoint.rsplit('/<path:path>', maxsplit=1)[0]
-        self._internal_app = internal_app
-        # atexit.register(self._internal_app.__del__)  # For clean exit...
+        # atexit.register(self._internal_apps.__del__)  # For clean exit...
+
+
+def pipeline_rest_api(name, available_tools, presets, conll_comments):
+    app = Flask(name)
+    api = Api(app)
+    add_params(api, RESTapp, available_tools, presets, conll_comments)
+
+    return app
 
 
 # Create app with the desired parameters...
-app = create_rest_app(__name__, endpoint=command, internal_app=prog)
+flask_app = pipeline_rest_api(__name__, available_tools=prog, presets={}, conll_comments=False)
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    flask_app.run(debug=False)

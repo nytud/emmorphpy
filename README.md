@@ -51,7 +51,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	[{'morphana': 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik'}, {'morphana': 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik'}]
 	>>> json.loads(requests.get('https://emmorph.herokuapp.com/dstem/' + word).text)[word]
     [{'lemma': 'működik', 'tag': '[/V][Prs.Def.3Pl]', 'morphana': 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'readable': 'működik[/V]=működ + ik[Prs.Def.3Pl]', 'twolevel': 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'}, {'lemma': 'működik', 'tag': '[/V][Prs.NDef.3Sg]', 'morphana': 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'readable': 'működik[/V]=működ + ik[Prs.NDef.3Sg]', 'twolevel': 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]'}]
-	>>> words = '\n'.join(('string', word, 'word2', ''))  # One word per line (first line is header, trailing newline is needed!)
+	>>> words = '\n'.join(('form', word, 'word2', ''))  # One word per line (first line is header, trailing newline is needed!)
 	>>> words_out = requests.post('https://emmorph.herokuapp.com/stem', files={'file': words}).text.split('\n')
 	>>> print(words_out[1].split('\t'))
 	['működik', '[{"lemma": "működik", "tag": "[/V][Prs.Def.3Pl]"}, {"lemma": "működik", "tag": "[/V][Prs.NDef.3Sg]"}]']
