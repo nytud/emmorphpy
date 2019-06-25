@@ -18,6 +18,81 @@ morph_flags = {'STEM': 0, 'PREFIX': 1, 'COMP_MEMBER': 2, 'COMP_MUST_HAVE': 3, 'C
 class EmMorphPy:
     pass_header = True
 
+    def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
+                 fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
+                 task='dstem', lexicon=None, exceptions=None, source_fields=None, target_fields=None):
+        self.loaded_conf = list(self._load_config(props))
+        params = self.loaded_conf.pop()  # HFST params
+
+        # Specialise the class for eg. stemming or detailed output...
+        available_tasks = {'stem': self._do_stem, 'analyze': self._do_analyze, 'dstem': self._do_dstem}
+        for keyword, key_fun in available_tasks.items():
+            if task == keyword:
+                self.process_token = key_fun
+                break
+        else:
+            raise ValueError('No proper task is specified. The available tasks are {0}'.
+                             format(' or '.join(available_tasks.keys())))  # TODO Proper Exception!
+
+        # Init extra anals
+        if lexicon is None:
+            self._create_extra_lexicon()
+        else:
+            self.lexicon = lexicon
+
+        # Init exceptional anals
+        if lexicon is None:
+            self._create_exceptions()
+        else:
+            self.exceptions = exceptions
+
+        try:
+            self.p = subprocess.Popen([hfst_lookup, *params, fsa], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            print('ERROR: hfst-lookup not found at: {0} !'.format(hfst_lookup), file=sys.stderr)
+            exit(1)
+
+        # Store frequent methods for easier access
+        self.proc_wait = self.p.wait
+        self.proc_stdin = self.p.stdin
+        self.proc_stdout_readline = self.p.stdout.readline
+        self.proc_stderr_read = self.p.stderr.read
+
+        # Field names for e-magyar TSV
+        if source_fields is None:
+            source_fields = set()
+
+        if target_fields is None:
+            target_fields = []
+
+        self.source_fields = source_fields
+        self.target_fields = target_fields
+
+        # Test HFST at init
+        self._spec_query('test')
+
+    def process_sentence(self, sen, field_names):
+        for tok in sen:
+            output = self.process_token(tok[field_names[0]])
+            output_json = json_dumps(output, ensure_ascii=False)
+            tok.append(output_json)
+        return sen
+
+    @staticmethod
+    def prepare_fields(field_names):
+        return [field_names['form']]  # TODO: Maybe its not a good idea to hand-wire here the name of the features
+
+    # These three functions generates JSON output for xtsv. They should not be called from outside
+    def _do_stem(self, token):
+        return self.stem(token, out_mode=lambda x: [self.zip_w_keys(analysis, ('lemma', 'tag')) for analysis in x])
+
+    def _do_analyze(self, token):
+        return self.analyze(token, out_mode=lambda x: [self.zip_w_keys((analysis,), ('morphana',)) for analysis in x])
+
+    def _do_dstem(self, token):
+        return self.dstem(token, out_mode=lambda x: [self.zip_w_keys(analysis) for analysis in x])
+
     def _create_extra_lexicon(self):
         """
         lexicon must be defined:
@@ -159,6 +234,91 @@ class EmMorphPy:
         return tag_convert, tag_replace, tag_config_is_stem, tag_config_compound_member, tag_convert_is_derivative, \
             tag_convert_config, tag_replace_config, tag_replace_config_is_prefix, \
             tag_replace_config_must_have_compound, copy2surface, hfst_params
+
+    @staticmethod
+    def _create_readable_ana(danal):
+        """
+        input : ki[/Prev]=ki+fizet[/V]=fizet+és[_Ger/N]=és+e[Poss.3Sg]=é+t[Acc]=t
+        immed.: ki[/Prev]   +fizet[/V]      +és[_Ger/N]   +e[Poss.3Sg]=é+t[Acc]
+        output: ki[/Prev] + fizet[/V] + és[_Ger/N] + e[Poss.3Sg]=é + t[Acc]
+        """
+        out = []
+        for deep, tag, surf in danal:
+            eq = '='
+            if deep == surf:
+                eq = ''
+                surf = ''
+            out.append('{0}[{1}]{2}{3}'.format(deep, tag, eq, surf).replace(' ', '_'))
+        return ' + '.join(out)
+
+    @staticmethod
+    def _format_danal(danal):
+        return '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal))
+
+    @staticmethod  # TODO: Maybe its not a good idea to hand-wire here the name and order of the features
+    def zip_w_keys(values, keys=('lemma', 'tag', 'morphana', 'readable', 'twolevel')):
+        # TODO: From Python 3.7 no need for ordered dict to keep the insertion order
+        # TODO: Its enough to write: {'lemma': lemma, 'tag': tag, 'morphana': danal, 'readable': readable}
+        return OrderedDict(zip(keys, values))
+
+    def close(self):
+        self.p.wait()
+        try:
+            self.p.kill()
+        except OSError:
+            pass
+
+    # Do allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
+    def stem(self, inp, out_mode=lambda x: sorted(set(x))):
+        return out_mode((lemma, tag) for lemma, tag, _, _ in self._spec_query(inp))
+
+    def analyze(self, inp, out_mode=lambda x: sorted(set(x))):
+        return out_mode(self._format_danal(danal) for _, _, danal, _ in self._spec_query(inp))
+
+    def dstem(self, inp, out_mode=lambda x: sorted(set(x))):
+        return out_mode((lemma, tag, self._format_danal(danal), self._create_readable_ana(danal), hfst_out)
+                        for lemma, tag, danal, hfst_out in self._spec_query(inp))
+
+    @staticmethod
+    def _parse_stem(inp):
+        item_surface = ''
+        item_tag = ''
+        item_lexical = ''
+        items = []
+        state = 0
+        for ch in inp:
+            if state in (0, 2):
+                if ch == ':':
+                    state += 1
+                elif ch == ' ':
+                    item_surface += ch
+                else:
+                    if len(item_tag) > 0:
+                        items.append((item_lexical, item_tag, item_surface))
+                        item_lexical, item_tag, item_surface, = '', '', ''
+
+                    item_surface += ch
+            elif state == 1:
+                if ch == '[':  # tag opening
+                    state = 3
+                    if len(item_tag) > 0:
+                        items.append((item_lexical, item_tag, item_surface))
+                        item_lexical, item_tag, item_surface, = '', '', ''
+                elif ch == ' ':  # beginning of next pair
+                    state = 0
+                else:
+                    item_lexical += ch
+            elif state == 3:
+                if ch == ']':  # tag closing
+                    state = 1
+                elif ch == ' ':  # beginning of next pair (remember we are inside a tag)
+                    state = 2
+                else:
+                    item_tag += ch
+        if len(item_tag) > 0 or len(item_lexical) > 0 or len(item_surface) > 0:
+            items.append((item_lexical, item_tag, item_surface))
+
+        return items  # Ez megy a stemmerbe... '+'.join(...)
 
     @staticmethod
     def _stemmer_process(input_str, tag_convert, tag_replace_get, tag_config_is_stem_get,
@@ -402,135 +562,6 @@ class EmMorphPy:
                                  if n >= last_stem_code or m['is_prefix']))
             return sz_stem, tag
 
-    @staticmethod
-    def _parse_stem(inp):
-        item_surface = ''
-        item_tag = ''
-        item_lexical = ''
-        items = []
-        state = 0
-        for ch in inp:
-            if state in (0, 2):
-                if ch == ':':
-                    state += 1
-                elif ch == ' ':
-                    item_surface += ch
-                else:
-                    if len(item_tag) > 0:
-                        items.append((item_lexical, item_tag, item_surface))
-                        item_lexical, item_tag, item_surface, = '', '', ''
-
-                    item_surface += ch
-            elif state == 1:
-                if ch == '[':  # tag opening
-                    state = 3
-                    if len(item_tag) > 0:
-                        items.append((item_lexical, item_tag, item_surface))
-                        item_lexical, item_tag, item_surface, = '', '', ''
-                elif ch == ' ':  # beginning of next pair
-                    state = 0
-                else:
-                    item_lexical += ch
-            elif state == 3:
-                if ch == ']':  # tag closing
-                    state = 1
-                elif ch == ' ':  # beginning of next pair (remember we are inside a tag)
-                    state = 2
-                else:
-                    item_tag += ch
-        if len(item_tag) > 0 or len(item_lexical) > 0 or len(item_surface) > 0:
-            items.append((item_lexical, item_tag, item_surface))
-
-        return items  # Ez megy a stemmerbe... '+'.join(...)
-
-    def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
-                 fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
-                 lexicon=None, exceptions=None, source_fields=None, target_fields=None):
-        self.loaded_conf = list(self._load_config(props))
-        params = self.loaded_conf.pop()  # HFST params
-
-        # Init extra anals
-        if lexicon is None:
-            self._create_extra_lexicon()
-        else:
-            self.lexicon = lexicon
-
-        # Init exceptional anals
-        if lexicon is None:
-            self._create_exceptions()
-        else:
-            self.exceptions = exceptions
-
-        try:
-            self.p = subprocess.Popen([hfst_lookup, *params, fsa], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
-        except FileNotFoundError:
-            print('ERROR: hfst-lookup not found at: {0} !'.format(hfst_lookup), file=sys.stderr)
-            exit(1)
-
-        # Store frequent methods for easier access
-        self.proc_wait = self.p.wait
-        self.proc_stdin = self.p.stdin
-        self.proc_stdout_readline = self.p.stdout.readline
-        self.proc_stderr_read = self.p.stderr.read
-
-        # Field names for e-magyar TSV
-        if source_fields is None:
-            source_fields = set()
-
-        if target_fields is None:
-            target_fields = []
-
-        self.source_fields = source_fields
-        self.target_fields = target_fields
-
-        # Test HFST at init
-        self._spec_query('test')
-
-    @staticmethod
-    def _create_readable_ana(danal):
-        """
-        input : ki[/Prev]=ki+fizet[/V]=fizet+és[_Ger/N]=és+e[Poss.3Sg]=é+t[Acc]=t
-        immed.: ki[/Prev]   +fizet[/V]      +és[_Ger/N]   +e[Poss.3Sg]=é+t[Acc]
-        output: ki[/Prev] + fizet[/V] + és[_Ger/N] + e[Poss.3Sg]=é + t[Acc]
-        """
-        out = []
-        for deep, tag, surf in danal:
-            eq = '='
-            if deep == surf:
-                eq = ''
-                surf = ''
-            out.append('{0}[{1}]{2}{3}'.format(deep, tag, eq, surf).replace(' ', '_'))
-        return ' + '.join(out)
-
-    @staticmethod
-    def _format_danal(danal):
-        return '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal))
-
-    @staticmethod  # TODO: Maybe its not a good idea to hand-wire here the name and order of the features
-    def zip_w_keys(values, keys=('lemma', 'tag', 'morphana', 'readable', 'twolevel')):
-        # TODO: From Python 3.7 no need for ordered dict to keep the insertion order
-        # TODO: Its enough to write: {'lemma': lemma, 'tag': tag, 'morphana': danal, 'readable': readable}
-        return OrderedDict(zip(keys, values))
-
-    def process_sentence(self, sen, field_names):
-        for tok in sen:
-            output = self.dstem(tok[field_names[0]], out_mode=lambda x: [self.zip_w_keys(analysis) for analysis in x])
-            output_json = json_dumps(output, ensure_ascii=False)
-            tok.append(output_json)
-        return sen
-
-    @staticmethod
-    def prepare_fields(field_names):
-        return [field_names['form']]  # TODO: Maybe its not a good idea to hand-wire here the name of the features
-
-    def close(self):
-        self.p.wait()
-        try:
-            self.p.kill()
-        except OSError:
-            pass
-
     @functools.lru_cache(maxsize=20000)
     def _spec_query(self, inp):
         output = []
@@ -580,17 +611,6 @@ class EmMorphPy:
         output.extend(self.lexicon.get(inp, []))
 
         return output
-
-    # Do allow space in stem or detailed analyzis! eg. "jóbarát" -> "jó*** barát"
-    def stem(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma, tag) for lemma, tag, _, _ in self._spec_query(inp))
-
-    def analyze(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode(self._format_danal(danal) for _, _, danal, _ in self._spec_query(inp))
-
-    def dstem(self, inp, out_mode=lambda x: sorted(set(x))):
-        return out_mode((lemma, tag, self._format_danal(danal), self._create_readable_ana(danal), hfst_out)
-                        for lemma, tag, danal, hfst_out in self._spec_query(inp))
 
     def test(self):
         hfst_out_test = 'a:a l:l :o m:m :[/N] a:a :[Poss.3Sg] :[Nom]'

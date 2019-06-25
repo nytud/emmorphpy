@@ -19,7 +19,7 @@ import emmorphpy
 
 # Default args
 tagger_args = ()
-tagger_kwargs = {}
+tagger_kwargs = {'source_fields': {'form'}, 'target_fields': ['anas']}
 tagger = emmorphpy.EmMorphPy
 
 # END Add personality...
@@ -27,11 +27,9 @@ tagger = emmorphpy.EmMorphPy
 prog = tagger(*tagger_args, **tagger_kwargs)
 
 
-def jsonify(status=200, indent=2, sort_keys=True, **jsonify_kwargs):
-    """
-    http://stackoverflow.com/a/23320628/7145849
-    """
-    response = make_response(json_dumps(dict(**jsonify_kwargs), indent=indent, sort_keys=sort_keys, ensure_ascii=False))
+def make_json_response(json_text, status=200):
+    """https://stackoverflow.com/questions/16908943/display-json-returned-from-flask-in-a-neat-way/23320628#23320628 """
+    response = make_response(json_text)
     response.headers['Content-Type'] = 'application/json; charset=utf-8'
     response.headers['mimetype'] = 'application/json'
     response.status_code = status
@@ -49,27 +47,28 @@ def add_params(restapi, resource_class, internal_apps, presets, conll_comments):
 
 class RESTapp(Resource):
     def get(self, path=''):
-        token = ''
+        # fun/token
         fun = None
-        for keyword, key_fun in self._keywords.items():
-            if path.startswith(keyword):
-                fun = key_fun
-                token = path[len(keyword):]  # Strip the keyword part
-                break
+        token = ''
+        if '/' in path:
+            fun, token = path.split('/', maxsplit=1)
+            fun = self._keywords.get(fun)
 
-        if len(token) == 0 or fun is None:
+        if len(path) == 0 or len(token) == 0 or fun is None:
             abort(400, 'Usage: /stem/word, /analyze/word, /dstem/word with HTTP GET or '
-                       '/batch_stem, /batch_analyze, /batch_dstem with '
-                       'HTTP POST a file mamed as \'file\' in the apropriate TSV format. '
+                       '/stem, /analyze, /dstem with HTTP POST a file mamed as \'file\' '
+                       'in the apropriate TSV format. '
                        'Further info: https://github.com/ppke-nlpg/emmorphpy')
 
-        return jsonify(**{token: fun(token)})
+        json_text = json_dumps({token: fun(token)}, indent=2, sort_keys=True, ensure_ascii=False)  # TODO THIS!
 
-    def post(self, path):
+        return make_json_response(json_text)
+
+    def post(self, path):  # TODO: USE THE xtsv variant!
         conll_comments = request.form.get('conll_comments', self._conll_comments)
         fun = None
         for keyword, key_fun in self._keywords.items():
-            if path == keyword[:-1]:  # Strip '/' from keyword
+            if path == keyword:
                 fun = key_fun
                 break
 
@@ -77,19 +76,24 @@ class RESTapp(Resource):
             abort(400, 'ERROR: input file not found in request!')
 
         inp_file = codecs.getreader('UTF-8')(request.files['file'])
-        last_prog = RESTapp.process(inp_file, fun)
+        last_prog = self.process(inp_file, fun)
 
         return Response(stream_with_context((line.encode('UTF-8') for line in last_prog)),
                         direct_passthrough=True)
 
-    @staticmethod
-    def process(stream, fun):
+    def process(self, stream, fun):  # TODO: Remove this!
         # Simplified version of the TSVHandler process function...
-        fields = next(stream).strip().split()
-        if fields != ['form']:
+        source_fields = self._internal_apps.source_fields
+        target_fields = self._internal_apps.target_fields
+
+        fields = next(stream).strip().split('\t')  # Read header to fields
+
+        # process_header START
+        if not source_fields.issubset(set(fields)):
             abort(400, 'ERROR: input header missing!')
-        fields.extend(['anas'])  # Add target fields
+        fields.extend(target_fields)  # Add target fields
         header = '{0}\n'.format('\t'.join(fields))
+        # process_header END
         yield header
 
         for line in stream:
@@ -100,6 +104,7 @@ class RESTapp(Resource):
                 yield line
             yield '\n'
 
+    # TODO: These three functions has moved into EmMorphPy
     def do_stem(self, token):
         return self._internal_apps.stem(token, out_mode=lambda x: [self._internal_apps.zip_w_keys(analysis,
                                                                                                   ('lemma', 'tag'))
@@ -124,7 +129,7 @@ class RESTapp(Resource):
         self._internal_apps = internal_apps
         self._presets = presets
         self._conll_comments = conll_comments
-        self._keywords = {'stem/': self.do_stem, 'analyze/': self.do_analyze, 'dstem/': self.do_dstem}
+        self._keywords = {'stem': self.do_stem, 'analyze': self.do_analyze, 'dstem': self.do_dstem}  # TODO Remove this!
         # atexit.register(self._internal_apps.__del__)  # For clean exit...
 
 
