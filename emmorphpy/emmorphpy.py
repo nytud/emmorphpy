@@ -32,7 +32,7 @@ class EmMorphPy:
                 break
         else:
             raise ValueError('No proper task is specified. The available tasks are {0}'.
-                             format(' or '.join(available_tasks.keys())))  # TODO Proper Exception!
+                             format(' or '.join(available_tasks.keys())))
 
         # Init extra anals
         if lexicon is None:
@@ -81,7 +81,7 @@ class EmMorphPy:
 
     @staticmethod
     def prepare_fields(field_names):
-        return [field_names['form']]  # TODO: Maybe its not a good idea to hand-wire here the name of the features
+        return [field_names['form']]  # TODO: Maybe its not a good idea to hard-wire here the name of the features
 
     # These three functions generates JSON output for xtsv. They should not be called from outside
     def _do_stem(self, token):
@@ -255,7 +255,7 @@ class EmMorphPy:
     def _format_danal(danal):
         return '+'.join(map(lambda x: '{0}[{1}]={2}'.format(*x), danal))
 
-    @staticmethod  # TODO: Maybe its not a good idea to hand-wire here the name and order of the features
+    @staticmethod  # TODO: Maybe its not a good idea to hard-wire here the name and order of the features
     def zip_w_keys(values, keys=('lemma', 'tag', 'morphana', 'readable', 'twolevel')):
         # TODO: From Python 3.7 no need for ordered dict to keep the insertion order
         # TODO: Its enough to write: {'lemma': lemma, 'tag': tag, 'morphana': danal, 'readable': readable}
@@ -477,7 +477,7 @@ class EmMorphPy:
             if COMP_BEFORE_HYPHEN not in m['flags'] or (hyphen_pos > 1 and len(m['lexical']) == 0 and
                                                         len(m['surface']) == 0 and
                                                         not morphs[hyphen_pos - 2]['is_stem']):
-                    compound = False
+                compound = False
 
         internal_punct = False
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
