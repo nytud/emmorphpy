@@ -1,5 +1,5 @@
 # emMorphPy
-A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Humor) Hungarian morphological analyzer_ 
+A wrapper and lemmatizer implemented in Python for ___emMorph__ (Humor) Hungarian morphological analyzer_ 
 
 ## Requirements
 
@@ -13,7 +13,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 ## Features
  - Stemming and returning the detailed morphological analyses with the proper transducer and config file
  - Handling extra and exceptional lexicons statically and dynamically (see [emmorphpy/emmorphpy.py](https://github.com/ppke-nlpg/emmorphpy/blob/master/emmorphpy/emmorphpy.py) for details)
- - Can be used through REST API, or from Python as a library (see usage examples below)
+ - Can be used through REST API (using [xtsv](https://github.com/dlt-rilmta/xtsv)), or from Python as a library (see usage examples below)
 
 ## Install on local machine
 
@@ -30,6 +30,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
   - Clone the repository
   - Add Heroku as remote origin
   - Add APT buildpack: `heroku buildpacks:add --index 1 https://github.com/heroku/heroku-buildpack-apt`
+  - Add Python buildpack: `heroku buildpacks:add --index 2 heroku/python`
   - Push the repository to Heroku
   - Enjoy!
 
@@ -80,8 +81,7 @@ A wrapper, a lemmatizer and REST API implemented in Python for ___emMorph__ (Hum
 	>>> m.exceptions['almával'] = {'a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]'}  
 	```
 
-
 ## License
 
-This Python wrapper, the lemmatizer implementation and the REST API is licensed under the LGPL 3.0 license.
-The database and the lemmatizer configuration has its own license.
+This Python wrapper, the lemmatizer implementation is licensed under the LGPL 3.0 license.
+xtsv, HFST, the database and the lemmatizer configuration has their own license.
