@@ -57,6 +57,7 @@ class EmMorphPy:
         self.proc_wait = self.p.wait
         self.proc_stdin = self.p.stdin
         self.proc_stdout_readline = self.p.stdout.readline
+        self.proc_stdout_read = self.p.stdout.read
         self.proc_stderr_read = self.p.stderr.read
 
         # Field names for e-magyar TSV
@@ -599,11 +600,16 @@ class EmMorphPy:
 
                 # Omit exceptional anals before any processing (parse_stem, stemmer_process)
                 if hfst_out not in self.exceptions.get(inp, {}):
-                    danal = parse_stem(hfst_out)
-                    stem = stemmer_process(danal, tag_convert, tag_replace, tag_config_is_stem,
-                                           tag_config_compound_member, tag_convert_is_derivative, tag_convert_config,
-                                           tag_replace_config, tag_replace_config_is_prefix,
-                                           tag_replace_config_must_have_compound, copy2surface)
+                    try:
+                        danal = parse_stem(hfst_out)
+                        stem = stemmer_process(danal, tag_convert, tag_replace, tag_config_is_stem,
+                                               tag_config_compound_member, tag_convert_is_derivative,
+                                               tag_convert_config, tag_replace_config, tag_replace_config_is_prefix,
+                                               tag_replace_config_must_have_compound, copy2surface)
+                    except Exception as e:
+                        self.proc_stdout_read()  # TODO: To prevent output slipping
+                        raise e
+
                     if len(stem) > 0:  # Suppress incorrect words
                         output.append((*stem, danal, hfst_out))  # lemma, tag, danal
 
