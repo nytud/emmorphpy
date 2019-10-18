@@ -63901,3 +63901,5 @@ pl.
 ifj.
 ún.
 lehullott/
+angol–magyar
+–

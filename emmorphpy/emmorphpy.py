@@ -431,6 +431,7 @@ class EmMorphPy:
                 compounds += 1
                 look_for_compound = False
 
+        # Itt a külső for ciklus vége
         """
         // === creating stem ===
         // is it compound?
@@ -469,7 +470,7 @@ class EmMorphPy:
         # "aa[FN][NOM]-bb[FN][NOM]" vagy "aa[FN]-bb[FN]"
         # pl "Árpad-ház"
 
-        # ha a kotojel elotti ures es az azt megelozo toalkoto =>
+        # ha a kotojel elotti ures (pl. ('', 'Nom', '') es az azt megelozo toalkoto =>
         # ha a kotojel elott rag van, akkor ez nem osszetett szo
         # TODO: Simplify bool expression...
         compound = compounds > 1 and hyphen_pos == -1 or must_have_compounds > 0
@@ -484,7 +485,8 @@ class EmMorphPy:
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
         for n in range(len_morphs-1, -1, -1):
             m = morphs[n]  # Mutate list in loop!
-            if INT_PUNCT not in m['flags']:
+            # Ez egy ronda hack, hogy a magában álló hosszúkötőjelnek legyen töve
+            if INT_PUNCT not in m['flags'] or m['surface'] == '–':
                 break
             internal_punct = True
             m['is_stem'] = False
@@ -503,7 +505,7 @@ class EmMorphPy:
                         last_stem_code = n
 
         # végén van egy kötőjel, ha előtte ragozoztt szó áll, nem lehet szoösszetétel
-        # pl. "magán-"
+        # pl. "magán- és közjavak"
         # ha a kötőjel előtti üres és az azt megelőző tőalkotó => hadd éljen, nem megy bele az ikerszó ágba
         # ez már ikerszó nem lehet
         # TODO: Simplify bool expression...
@@ -521,7 +523,7 @@ class EmMorphPy:
             m['is_stem'] |= morphs[n - 1]['is_stem'] and morphs[n + 1]['is_stem'] and \
                 (m['surface'] == '-' or m['lexical'] == '-')
 
-        if internal_punct_and and hyphen_pos != -1 and not compound:  # ikerszo
+        if internal_punct_and and hyphen_pos != -1 and not compound:  # ikerszo (pl. egyet-egyet -> egy-egy)
 
             half = False
             half_pos = next((z for z in range(max(hyphen_pos - 1, 0), 0, -1) if morphs[z]['is_stem']), stem_code)
