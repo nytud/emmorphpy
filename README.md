@@ -1,3 +1,7 @@
+# __Warning: This repository might not contain the newest version of the source code. The development is continued at https://github.com/dlt-rilmta/emmorphpy__ 
+
+---
+
 # emMorphPy
 A wrapper and lemmatizer implemented in Python for ___emMorph__ (Humor) Hungarian morphological analyzer_ 
 
