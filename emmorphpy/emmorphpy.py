@@ -483,10 +483,9 @@ class EmMorphPy:
 
         internal_punct = False
         # most megmentjuk attol, hogy a PUNCT, PER vegu szavak to tipusa PUNCT legyen
-        for n in range(len_morphs-1, -1, -1):
+        for n in range(len_morphs-1, 0, -1):
             m = morphs[n]  # Mutate list in loop!
-            # Ez egy ronda hack, hogy a magában álló hosszúkötőjelnek legyen töve
-            if INT_PUNCT not in m['flags'] or m['surface'] == '–':
+            if INT_PUNCT not in m['flags']:
                 break
             internal_punct = True
             m['is_stem'] = False
