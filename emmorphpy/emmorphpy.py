@@ -312,6 +312,8 @@ class EmMorphPy:
             elif state == 3:
                 if ch == ']':  # tag closing
                     state = 1
+                    items.append((item_lexical, item_tag, item_surface))
+                    item_lexical, item_tag, item_surface, = '', '', ''
                 elif ch == ' ':  # beginning of next pair (remember we are inside a tag)
                     state = 2
                 else:
