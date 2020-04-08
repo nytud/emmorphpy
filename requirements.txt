@@ -1,3 +1,4 @@
+xtsv<1.0
 werkzeug
 Flask
 gunicorn
