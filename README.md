@@ -14,7 +14,7 @@ A wrapper and lemmatizer implemented in Python for ___emMorph__ (Humor) Hungaria
 
 ## Features
  - Stemming and returning the detailed morphological analyses with the proper transducer and config file
- - Handling extra and exceptional lexicons statically and dynamically (see [emmorphpy/emmorphpy.py](https://github.com/ppke-nlpg/emmorphpy/blob/master/emmorphpy/emmorphpy.py) for details)
+ - Handling extra and exceptional lexicons statically and dynamically (see [emmorphpy/emmorphpy.py](https://github.com/dlt-rilmta/emmorphpy/blob/master/emmorphpy/emmorphpy.py) for details)
  - Can be used through REST API (using [xtsv](https://github.com/dlt-rilmta/xtsv)), or from Python as a library (see usage examples below)
 
 ## Install on local machine
@@ -69,8 +69,8 @@ A wrapper and lemmatizer implemented in Python for ___emMorph__ (Humor) Hungaria
   - From Python:
 
 	```python
-	>>> import emmorphpy.emmorphpy as emmorph
-	>>> m = emmorph.EmMorphPy()
+	>>> from emmorphpy import EmMorphPy
+	>>> m = EmMorphPy()
 	>>> m.stem('működik')     # Returns list of lemmatisations (stem and tag pairs)
 	[('működik', '[/V][Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]')]
 	>>> m.analyze('működik')  # Returns list of detailed analyzes (word by morphemes)
@@ -81,6 +81,26 @@ A wrapper and lemmatizer implemented in Python for ___emMorph__ (Humor) Hungaria
 	>>> m.lexicon['Obamával'] = [('Obama', '[/N][Nom]', '', ''), ('Obam', '[/N][Nom]', '', ''), ('Obamá', '[/N][Nom]', '', '')]
 	>>> # Add new exceptions to the lexicon (Exact matches will be filtered out ASAP!) Format: ('HFST-OUTPUT')
 	>>> m.exceptions['almával'] = {'a:a l:l :o m:m :[/N] á:a :[Poss.3Sg] v:v a:a l:l :[Ins]'}  
+	```
+ 
+ - From CLI:
+
+	```bash
+	$ python3 -m emmorphpy --raw  # Interactive mode (currently dstem mode only)
+	Type one word per line, Ctrl+D or empty word to exit
+	--> működik
+	[('működik', '[/V][Prs.Def.3Pl]', 'működik[/V]=működ+ik[Prs.Def.3Pl]=ik', 'működik[/V]=működ + ik[Prs.Def.3Pl]', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.Def.3Pl]'), ('működik', '[/V][Prs.NDef.3Sg]', 'működik[/V]=működ+ik[Prs.NDef.3Sg]=ik', 'működik[/V]=működ + ik[Prs.NDef.3Sg]', 'm:m ű:ű k:k ö:ö d:d :i :k :[/V] i:i k:k :[Prs.NDef.3Sg]')]
+	$ python3 -m emmorphpy --raw -i input.txt  # Batch mode
+	működik	működik[/V]=működ+ik[Prs.Def.3Pl]=ik	működik	[/V][Prs.Def.3Pl]
+	működik	működik[/V]=működ+ik[Prs.NDef.3Sg]=ik	működik	[/V][Prs.NDef.3Sg]
+	
+	a	a[/Det|Art.Def]=a	a	[/Det|Art.Def]
+	a	a[/Det|Pro|(Post)]=a	a	[/Det|Pro|(Post)]
+	a	a[/N|Ltr]=a+[Nom]=	a	[/N][Nom]
+	a	a[/N|Pro|(Post)]=a+[Nom]=	a	[/N|Pro|(Post)][Nom]
+	
+	program	program[/N]=program+[Nom]=	program	[/N][Nom]
+
 	```
 
 ## License

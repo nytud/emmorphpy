@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+# !/usr/bin/env pyhton3
 # -*- coding: utf-8, vim: expandtab:ts=4 -*-
 
 from xtsv import pipeline_rest_api, singleton_store_factory
@@ -15,7 +15,8 @@ tools = [(em_morph_stem, ('stem',)),
          (em_morph_dstem, ('dstem',)),
          ]
 app = pipeline_rest_api('emMorph', tools, {},  conll_comments=False, singleton_store=singleton_store_factory(),
-                        form_title='emMorph demo', form_type='radio', doc_link='https://github.com/ppke-nlpg/emmorphpy')
+                        form_title='emMorph demo', form_type='radio',
+                        doc_link='https://github.com/dlt-rilmta/emmorphpy')
 
 if __name__ == '__main__':
     app.run(debug=False)
