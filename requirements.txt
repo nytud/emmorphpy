@@ -1,8 +1,6 @@
 xtsv<1.0
-werkzeug
-Flask
-gunicorn
-flask_restful
 jprops
+# For Heroku
+gunicorn
 # For the clients
 requests
