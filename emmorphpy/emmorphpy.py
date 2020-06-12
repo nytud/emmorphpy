@@ -20,7 +20,9 @@ class EmMorphPy:
 
     def __init__(self, props=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hfst-wrapper.props'),
                  fsa=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hu.hfstol'), hfst_lookup='hfst-lookup',
-                 task='dstem', lexicon=None, exceptions=None, source_fields=None, target_fields=None):
+                 task='dstem', lexicon=None, exceptions=None, max_allowed_anals=25,
+                 source_fields=None, target_fields=None):
+        self._max_allowed_anals = max_allowed_anals  # Anals after n anals will be discarded!
         self.loaded_conf = list(self._load_config(props))
         params = self.loaded_conf.pop()  # HFST params
 
@@ -57,7 +59,6 @@ class EmMorphPy:
         self.proc_wait = self.p.wait
         self.proc_stdin = self.p.stdin
         self.proc_stdout_readline = self.p.stdout.readline
-        self.proc_stdout_read = self.p.stdout.read
         self.proc_stderr_read = self.p.stderr.read
 
         # Field names for e-magyar TSV
@@ -587,6 +588,9 @@ class EmMorphPy:
             print(proc_stderr_read().decode('UTF-8').rstrip(), file=sys.stderr)
             exit(proc_wait())
 
+        # TODO Hack to partially workaround analysing: D-dúr-H-dúr-C-dúr-G-dúr-Esz-dúr-G-dúr-D-dúr which has
+        #  392892 possible analysis in about 1:30 seconds
+        no_of_remaining_allowed_anals = self._max_allowed_anals
         while True:
             out = ''
             try:
@@ -600,6 +604,11 @@ class EmMorphPy:
             ret = out.decode('UTF-8').strip().split('\t')
             if len(ret) == 3 and not ret[1].endswith('+?'):
                 hfst_out = ret[1]
+                no_of_remaining_allowed_anals -= 1
+                if no_of_remaining_allowed_anals <= 0:
+                    while len(out) > 1:
+                        out = proc_stdout_readline()
+                    break
 
                 # Omit exceptional anals before any processing (parse_stem, stemmer_process)
                 if hfst_out not in self.exceptions.get(inp, {}):
@@ -610,7 +619,8 @@ class EmMorphPy:
                                                tag_convert_config, tag_replace_config, tag_replace_config_is_prefix,
                                                tag_replace_config_must_have_compound, copy2surface)
                     except Exception as e:
-                        self.proc_stdout_read()  # TODO: To prevent output slipping
+                        while len(out) > 1:  # To prevent output slipping
+                            out = proc_stdout_readline()
                         raise e
 
                     if len(stem) > 0:  # Suppress incorrect words
