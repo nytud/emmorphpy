@@ -1,5 +1,4 @@
-xtsv>=1.0,<2.0
-jprops
+https://github.com/dlt-rilmta/emmorphpy/releases/download/v1.1.0/emmorphpy-1.1.0-py3-none-any.whl
 # For Heroku
 gunicorn
 # For the clients

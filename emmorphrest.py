@@ -3,11 +3,11 @@
 
 from xtsv import pipeline_rest_api, singleton_store_factory
 
-em_morph_stem = ('emmorphpy.emmorphpy', 'EmMorphPy', 'stem', (),
+em_morph_stem = ('emmorphpy', 'EmMorphPy', 'stem', (),
                  {'task': 'stem', 'source_fields': {'form'}, 'target_fields': ['anas']})
-em_morph_analyze = ('emmorphpy.emmorphpy', 'EmMorphPy', 'analyze', (),
+em_morph_analyze = ('emmorphpy', 'EmMorphPy', 'analyze', (),
                     {'task': 'analyze', 'source_fields': {'form'}, 'target_fields': ['anas']})
-em_morph_dstem = ('emmorphpy.emmorphpy', 'EmMorphPy', 'dstem', (),
+em_morph_dstem = ('emmorphpy', 'EmMorphPy', 'dstem', (),
                   {'task': 'dstem', 'source_fields': {'form'}, 'target_fields': ['anas']})
 
 tools = [(em_morph_stem, ('stem',)),
