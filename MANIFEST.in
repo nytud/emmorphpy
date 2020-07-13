@@ -1,0 +1,2 @@
+include emmorphpy/hfst-wrapper.props
+include emmorphpy/hu.hfstol

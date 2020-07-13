@@ -67,7 +67,7 @@ def main():
     # Init and run the module as it were in xtsv
 
     # The relevant part of config.py
-    em_morph = ('emmorphpy.emmorphpy', 'EmMorphPy', 'emMorph', (),
+    em_morph = ('emmorphpy', 'EmMorphPy', 'emMorph', (),
                 {'source_fields': {'form'}, 'target_fields': ['anas']})
     tools = [(em_morph, ('morph', 'emMorph'))]
 

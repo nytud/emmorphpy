@@ -1,0 +1,22 @@
+language: python
+dist: bionic
+sudo: true
+python:
+  - '3.6'
+install:
+  - pip install -r requirements-dev.txt
+  - make install-dep-packages
+script:
+  - make ci-test
+deploy:
+    provider: releases
+    skip_cleanup: true
+    api_key: $GITHUB_TOKEN
+    file_glob: true
+    file: dist/*
+    on:
+        repo: dlt-rilmta/emmorphpy
+        branch: master
+        tags: true
+    notifications:
+        email: false

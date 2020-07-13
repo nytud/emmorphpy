@@ -1,1 +1,0 @@
-web: gunicorn emmorphrest:app --log-file=-

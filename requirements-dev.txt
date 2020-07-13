@@ -1,0 +1,7 @@
+# Own requirements
+-r requirements.txt
+
+# Packaging
+setuptools
+twine
+wheel

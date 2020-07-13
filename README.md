@@ -8,7 +8,7 @@ A wrapper and lemmatizer implemented in Python for ___emMorph__ (Humor) Hungaria
   - (Included in this repository) The compiled FST (hu.hfstol): go to https://github.com/dlt-rilmta/emMorph for compilation details
   - (Included in this repository) The lemmatizer config file: available at https://github.com/dlt-rilmta/hunlp-GATE/blob/master/Lang_Hungarian/resources/hfst/hfst-wrapper.props
   - _hfst-lookup 0.6 (hfst 3.13.0)_ or higher: On Ubuntu 18.04 LTS or higher just `sudo apt install hfst`
-  - Python 3 (>=3.5, tested with 3.6)
+  - Python 3 (>=3.6, tested with 3.6)
   - Pip to install the additional requirements in requirements.txt
   - (Optional) a cloud service like [Heroku](https://heroku.com) for hosting the API
 
