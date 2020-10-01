@@ -1,4 +1,4 @@
-# !/usr/bin/env pyhton3
+#!/usr/bin/env python3
 # -*- coding: utf-8, vim: expandtab:ts=4 -*-
 
 from .emmorphpy import EmMorphPy

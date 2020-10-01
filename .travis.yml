@@ -1,9 +1,15 @@
 language: python
 dist: bionic
+# When we need JDK also
+# jdk: openjdk11
 sudo: true
 python:
   - '3.6'
 install:
+  # Install packages with APT
+  # - make install-dep-packages
+  # When cython is needed to be installed separately
+  # - pip install cython
   - pip install -r requirements-dev.txt
   - make install-dep-packages
 script:
@@ -11,6 +17,7 @@ script:
 deploy:
     provider: releases
     skip_cleanup: true
+    # Create a personal access token and store it in travis-ci as an environment variable
     api_key: $GITHUB_TOKEN
     file_glob: true
     file: dist/*
@@ -18,5 +25,6 @@ deploy:
         repo: dlt-rilmta/emmorphpy
         branch: master
         tags: true
+        condition: $TRAVIS_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$
     notifications:
         email: false
