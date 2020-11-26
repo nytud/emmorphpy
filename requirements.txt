@@ -1,5 +1,4 @@
-xtsv>=1.0,<2.0
-jprops
+-e .
 # For Heroku
 gunicorn
 # For the clients
