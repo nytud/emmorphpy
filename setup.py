@@ -20,7 +20,7 @@ with open('README.md') as fh:
 
 setuptools.setup(
     name='emmorphpy',
-    # Get version without actually importing the module
+    # Get version without actually importing the module (else we need the dependencies installed)
     version=getattr(import_pyhton_file('version', 'emmorphpy/version.py'), '__version__'),
     author='dlazesz',  # Will warn about missing e-mail
     description='A wrapper, a lemmatizer and REST API implemented in Python for emMorph (Humor)'
