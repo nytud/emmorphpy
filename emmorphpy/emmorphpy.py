@@ -150,7 +150,7 @@ class EmMorphPy:
 
     @staticmethod
     def _load_config(java_props_file):
-        with open(java_props_file) as fp:
+        with open(java_props_file, encoding='UTF-8') as fp:
             props = jprops.load_properties(fp)
 
         item_sep = props.get('stemmer.item_sep', ';')
